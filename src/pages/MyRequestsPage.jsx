@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyRequests, cancelRequest } from '../api/requests';
 import { formatDateTime } from '../utils/format';
+import { showToast } from '../components/Toast';
 
-const statusColors = {
-  pending: 'text-yellow-700 bg-yellow-50',
-  accepted: 'text-green-700 bg-green-50',
-  declined: 'text-red-700 bg-red-50',
-  cancelled: 'text-gray-500 bg-gray-50',
-  completed: 'text-blue-700 bg-blue-50',
+const statusBadges = {
+  pending: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  accepted: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  declined: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+  cancelled: 'bg-slate-800 text-slate-400 border-slate-700',
+  completed: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
 };
 
 export default function MyRequestsPage() {
@@ -22,7 +23,7 @@ export default function MyRequestsPage() {
     setError('');
     try {
       const { requests } = await getMyRequests();
-      setRequests(requests);
+      setRequests(requests || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load your requests');
     } finally {
@@ -31,60 +32,139 @@ export default function MyRequestsPage() {
   };
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const { requests } = await getMyRequests();
+        if (active) setRequests(requests || []);
+      } catch (err) {
+        if (active) setError(err.response?.data?.message || 'Failed to load your requests');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleCancel = async (id) => {
-    if (!confirm('Cancel this request?')) return;
+    if (!confirm('Cancel this ride request?')) return;
     setBusyId(id);
     try {
       await cancelRequest(id);
+      showToast('Ride request cancelled', 'info');
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to cancel');
+      const msg = err.response?.data?.message || 'Failed to cancel request';
+      showToast(msg, 'error');
     } finally {
       setBusyId(null);
     }
   };
 
-  if (loading) return <div className="max-w-3xl mx-auto px-4 py-8 text-gray-500">Loading...</div>;
-  if (error) return <div className="max-w-3xl mx-auto px-4 py-8 text-red-600">{error}</div>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
+        <div className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin mx-auto"></div>
+        <p className="text-sm font-medium text-slate-400">Loading your ride requests...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
+          ⚠️ {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-xl font-semibold mb-6">My ride requests</h1>
-
-      {requests.length === 0 && <p className="text-gray-500 text-sm">You haven't requested any rides yet.</p>}
-
-      <div className="space-y-3">
-        {requests.map((r) => (
-          <div key={r._id} className="bg-white border rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium">
-                {r.tripId.origin.address || 'Origin'} → {r.tripId.destination.address || 'Destination'}
-              </p>
-              <p className="text-sm text-gray-500">Departs {formatDateTime(r.tripId.departureTime)}</p>
-              <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[r.status]}`}>
-                {r.status}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link to={`/trips/${r.tripId._id}`} className="text-sm text-gray-600 hover:underline">
-                View
-              </Link>
-              {['pending', 'accepted'].includes(r.status) && (
-                <button
-                  disabled={busyId === r._id}
-                  onClick={() => handleCancel(r._id)}
-                  className="text-sm text-red-600 hover:underline disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-slate-100 flex items-center gap-2">
+            <span>📋</span> My Ride Requests
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Track the status of your requested seats and trip confirmations.
+          </p>
+        </div>
+        <Link
+          to="/search"
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02] shrink-0 text-center"
+        >
+          🔍 Search Rides
+        </Link>
       </div>
+
+      {requests.length === 0 ? (
+        <div className="glass-card rounded-3xl p-12 text-center border border-slate-800 space-y-3">
+          <span className="text-4xl block opacity-40">🧳</span>
+          <p className="text-sm font-semibold text-slate-300">You haven't requested any rides yet</p>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Find drivers travelling along your route and request seats for a hassle-free commute.
+          </p>
+          <Link
+            to="/search"
+            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold"
+          >
+            Find a Ride Now
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {requests.map((r) => (
+            <div
+              key={r._id}
+              className="glass-card glass-card-hover rounded-2xl p-6 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+              <div className="space-y-2 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusBadges[r.status]}`}>
+                    {r.status}
+                  </span>
+                </div>
+
+                <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                  <span className="truncate">{r.tripId?.origin?.address || 'Origin'}</span>
+                  <span className="text-indigo-400">→</span>
+                  <span className="truncate">{r.tripId?.destination?.address || 'Destination'}</span>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  🕒 Departs: {formatDateTime(r.tripId?.departureTime)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                {r.tripId?._id && (
+                  <Link
+                    to={`/trips/${r.tripId._id}`}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                  >
+                    View Trip Details
+                  </Link>
+                )}
+                {['pending', 'accepted'].includes(r.status) && (
+                  <button
+                    disabled={busyId === r._id}
+                    onClick={() => handleCancel(r._id)}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
+                  >
+                    Cancel Request
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
