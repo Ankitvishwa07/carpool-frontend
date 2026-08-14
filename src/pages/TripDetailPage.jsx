@@ -7,7 +7,7 @@ import { getTrip, getTripMessages, completeTrip } from '../api/trips';
 import { createRequest, cancelRequest, acceptRequest, declineRequest, getIncomingRequests, getMyRequests } from '../api/requests';
 import { submitRating } from '../api/rating';
 import { formatDateTime } from '../utils/format';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 

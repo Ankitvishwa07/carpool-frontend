@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getMyTrips, cancelTrip, completeTrip } from '../api/trips';
 import { getIncomingRequests, acceptRequest, declineRequest } from '../api/requests';
 import { formatDateTime } from '../utils/format';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function MyTripsPage() {
   const [trips, setTrips] = useState([]);

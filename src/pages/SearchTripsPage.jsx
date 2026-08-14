@@ -4,7 +4,7 @@ import { createRequest } from '../api/requests';
 import { Link } from 'react-router-dom';
 import { formatDateTime } from '../utils/format';
 import LocationPicker from '../components/LocationPicker';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function SearchTripsPage() {
   const [origin, setOrigin] = useState(null);

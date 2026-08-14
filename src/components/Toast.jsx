@@ -1,25 +1,18 @@
 import { useState, useEffect } from 'react';
-
-let toastListener = null;
-
-export function showToast(message, type = 'info') {
-  if (toastListener) {
-    toastListener({ id: Date.now(), message, type });
-  }
-}
+import { setToastListener } from '../utils/toast';
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
-    toastListener = (newToast) => {
+    setToastListener((newToast) => {
       setToasts((prev) => [...prev, newToast]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
       }, 4000);
-    };
+    });
     return () => {
-      toastListener = null;
+      setToastListener(null);
     };
   }, []);
 

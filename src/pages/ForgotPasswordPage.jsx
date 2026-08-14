@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

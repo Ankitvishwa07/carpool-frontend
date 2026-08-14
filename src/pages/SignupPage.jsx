@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function SignupPage() {
   const signup = useAuthStore((s) => s.signup);

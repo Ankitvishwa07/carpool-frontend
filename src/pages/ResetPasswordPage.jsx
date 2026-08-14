@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyRequests, cancelRequest } from '../api/requests';
 import { formatDateTime } from '../utils/format';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 const statusBadges = {
   pending: 'bg-amber-500/20 text-amber-300 border-amber-500/30',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createTrip } from '../api/trips';
 import LocationPicker from '../components/LocationPicker';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 const DAYS = [
   { label: 'Sun', value: 0 },

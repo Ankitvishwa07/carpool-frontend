@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAdminUsers, flagUser, unflagUser, disableUser, enableUser, getAdminAnalytics } from '../api/admin';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);

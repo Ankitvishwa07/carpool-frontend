@@ -3,7 +3,7 @@ import api from '../api/client';
 import { updateProfile } from '../api/profile';
 import useAuthStore from '../store/authStore';
 import LocationPicker from '../components/LocationPicker';
-import { showToast } from '../components/Toast';
+import { showToast } from '../utils/toast';
 
 export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
