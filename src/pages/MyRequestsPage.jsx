@@ -22,8 +22,8 @@ export default function MyRequestsPage() {
     setLoading(true);
     setError('');
     try {
-      const { requests } = await getMyRequests();
-      setRequests(requests || []);
+      const res = await getMyRequests();
+      setRequests(Array.isArray(res) ? res : res?.requests || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load your requests');
     } finally {
@@ -37,8 +37,8 @@ export default function MyRequestsPage() {
       setLoading(true);
       setError('');
       try {
-        const { requests } = await getMyRequests();
-        if (active) setRequests(requests || []);
+        const res = await getMyRequests();
+        if (active) setRequests(Array.isArray(res) ? res : res?.requests || []);
       } catch (err) {
         if (active) setError(err.response?.data?.message || 'Failed to load your requests');
       } finally {

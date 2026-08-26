@@ -22,8 +22,11 @@ export default function LoginPage() {
     if (success) {
       showToast('Welcome back to CommuteShare!', 'success');
       navigate('/dashboard');
-    } else if (error) {
-      showToast(error, 'error');
+    } else {
+      const latestError = useAuthStore.getState().error;
+      if (latestError) {
+        showToast(latestError, 'error');
+      }
     }
   };
 

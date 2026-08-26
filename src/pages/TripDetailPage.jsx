@@ -9,7 +9,8 @@ import { submitRating } from '../api/rating';
 import { formatDateTime } from '../utils/format';
 import { showToast } from '../utils/toast';
 
-const SOCKET_URL = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 
 function RatingForm({ label, onSubmit, busy }) {
   const [stars, setStars] = useState(0);
@@ -76,7 +77,8 @@ export default function TripDetailPage() {
   const [ratingBusy, setRatingBusy] = useState(false);
   const [ratingError, setRatingError] = useState('');
 
-  const isDriver = trip?.driverId?._id === user?.id;
+  const userId = user?._id || user?.id;
+  const isDriver = (trip?.driverId?._id || trip?.driverId) === userId;
 
   const loadCore = async () => {
     setLoading(true);
@@ -85,13 +87,16 @@ export default function TripDetailPage() {
       const { trip: fetchedTrip } = await getTrip(id);
       setTrip(fetchedTrip);
 
-      const iAmDriver = fetchedTrip.driverId?._id === user?.id;
+      const driverIdStr = fetchedTrip.driverId?._id || fetchedTrip.driverId;
+      const iAmDriver = driverIdStr === userId;
       if (iAmDriver) {
-        const { requests } = await getIncomingRequests();
-        setIncomingRequests(requests.filter((r) => r.tripId?._id === id));
+        const reqData = await getIncomingRequests();
+        const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+        setIncomingRequests(reqList.filter((r) => (r.tripId?._id || r.tripId) === id));
       } else {
-        const { requests } = await getMyRequests();
-        setMyRequest(requests.find((r) => r.tripId?._id === id) || null);
+        const reqData = await getMyRequests();
+        const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+        setMyRequest(reqList.find((r) => (r.tripId?._id || r.tripId) === id) || null);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load trip');
@@ -110,13 +115,16 @@ export default function TripDetailPage() {
         if (!active) return;
         setTrip(fetchedTrip);
 
-        const iAmDriver = fetchedTrip.driverId?._id === user?.id;
+        const driverIdStr = fetchedTrip.driverId?._id || fetchedTrip.driverId;
+        const iAmDriver = driverIdStr === userId;
         if (iAmDriver) {
-          const { requests } = await getIncomingRequests();
-          if (active) setIncomingRequests(requests.filter((r) => r.tripId?._id === id));
+          const reqData = await getIncomingRequests();
+          const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+          if (active) setIncomingRequests(reqList.filter((r) => (r.tripId?._id || r.tripId) === id));
         } else {
-          const { requests } = await getMyRequests();
-          if (active) setMyRequest(requests.find((r) => r.tripId?._id === id) || null);
+          const reqData = await getMyRequests();
+          const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+          if (active) setMyRequest(reqList.find((r) => (r.tripId?._id || r.tripId) === id) || null);
         }
       } catch (err) {
         if (active) setError(err.response?.data?.message || 'Failed to load trip');
@@ -127,7 +135,7 @@ export default function TripDetailPage() {
     return () => {
       active = false;
     };
-  }, [id, user?.id]);
+  }, [id, userId]);
 
   const canChat = isDriver
     ? incomingRequests.some((r) => r.status === 'accepted')
@@ -389,7 +397,8 @@ export default function TripDetailPage() {
                 </div>
               ) : (
                 messages.map((m) => {
-                  const isMe = m.senderId === user.id || m.senderId?._id === user.id;
+                  const senderIdStr = m.senderId?._id || m.senderId;
+                  const isMe = senderIdStr === userId;
 
                   return (
                     <div key={m._id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>

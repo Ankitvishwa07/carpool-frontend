@@ -17,8 +17,8 @@ export default function MyTripsPage() {
     setError('');
     try {
       const [tripsRes, requestsRes] = await Promise.all([getMyTrips(), getIncomingRequests()]);
-      setTrips(tripsRes.trips || []);
-      setRequests(requestsRes.requests || []);
+      setTrips(Array.isArray(tripsRes) ? tripsRes : tripsRes?.trips || []);
+      setRequests(Array.isArray(requestsRes) ? requestsRes : requestsRes?.requests || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load your trips');
     } finally {
@@ -34,8 +34,8 @@ export default function MyTripsPage() {
       try {
         const [tripsRes, requestsRes] = await Promise.all([getMyTrips(), getIncomingRequests()]);
         if (active) {
-          setTrips(tripsRes.trips || []);
-          setRequests(requestsRes.requests || []);
+          setTrips(Array.isArray(tripsRes) ? tripsRes : tripsRes?.trips || []);
+          setRequests(Array.isArray(requestsRes) ? requestsRes : requestsRes?.requests || []);
         }
       } catch (err) {
         if (active) setError(err.response?.data?.message || 'Failed to load your trips');

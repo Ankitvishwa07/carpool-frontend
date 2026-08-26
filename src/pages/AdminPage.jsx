@@ -15,7 +15,7 @@ export default function AdminPage() {
     setError('');
     try {
       const [usersData, analyticsData] = await Promise.all([getAdminUsers({}), getAdminAnalytics()]);
-      setUsers(usersData.users || []);
+      setUsers(Array.isArray(usersData) ? usersData : usersData?.users || []);
       setAnalytics(analyticsData);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load admin data');
@@ -32,7 +32,7 @@ export default function AdminPage() {
       try {
         const [usersData, analyticsData] = await Promise.all([getAdminUsers({}), getAdminAnalytics()]);
         if (active) {
-          setUsers(usersData.users || []);
+          setUsers(Array.isArray(usersData) ? usersData : usersData?.users || []);
           setAnalytics(analyticsData);
         }
       } catch (err) {

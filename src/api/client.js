@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Access token lives in memory only (module-level variable), never localStorage.
 // It's lost on page refresh by design — refreshAccessToken() below re-fetches it

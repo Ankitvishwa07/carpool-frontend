@@ -30,7 +30,7 @@ export default function SearchTripsPage() {
 
     setSearching(true);
     try {
-      const { trips } = await searchTrips({
+      const res = await searchTrips({
         originLat: origin.lat,
         originLng: origin.lng,
         destLat: destination.lat,
@@ -39,9 +39,10 @@ export default function SearchTripsPage() {
         radiusKm: form.radiusKm,
         windowMinutes: form.windowMinutes,
       });
-      setResults(trips || []);
-      if (trips?.length > 0) {
-        showToast(`Found ${trips.length} matching ride(s)!`, 'success');
+      const tripsList = Array.isArray(res) ? res : res?.trips || [];
+      setResults(tripsList);
+      if (tripsList.length > 0) {
+        showToast(`Found ${tripsList.length} matching ride(s)!`, 'success');
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Search failed';

@@ -17,9 +17,15 @@ export default function LocationPicker({ label, value, onChange }) {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const [query, setQuery] = useState(value?.address || '');
+  const [prevAddress, setPrevAddress] = useState(value?.address);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef(null);
+
+  if (value?.address !== undefined && value.address !== prevAddress) {
+    setPrevAddress(value.address);
+    setQuery(value.address || '');
+  }
 
   const reverseGeocode = async (lat, lng) => {
     try {
@@ -34,9 +40,9 @@ export default function LocationPicker({ label, value, onChange }) {
   };
 
   useEffect(() => {
-    if (mapRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
-    const center = value?.lat ? [value.lat, value.lng] : DEFAULT_CENTER;
+    const center = value?.lat && value?.lng ? [value.lat, value.lng] : DEFAULT_CENTER;
     const map = L.map(mapContainerRef.current).setView(center, value?.lat ? 13 : 10);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -60,9 +66,29 @@ export default function LocationPicker({ label, value, onChange }) {
     mapRef.current = map;
     markerRef.current = marker;
 
-    return () => map.remove();
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (value?.lat && value?.lng && mapRef.current && markerRef.current) {
+      const currentPos = markerRef.current.getLatLng();
+      if (Math.abs(currentPos.lat - value.lat) > 0.0001 || Math.abs(currentPos.lng - value.lng) > 0.0001) {
+        mapRef.current.setView([value.lat, value.lng], 13);
+        markerRef.current.setLatLng([value.lat, value.lng]);
+      }
+    }
+  }, [value?.lat, value?.lng]);
 
   const handleSearchChange = (e) => {
     const text = e.target.value;
