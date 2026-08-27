@@ -2,6 +2,16 @@
 
 @layer base {
   :root {
+    --brand-primary: #7CA9FF;
+    --brand-primary-hover: #6697FF;
+    --brand-primary-dark: #3B72E6;
+    --brand-primary-light: #EBF2FF;
+    --brand-glow: rgba(124, 169, 255, 0.35);
+    
+    --bg-dark: #0B0F19;
+    --bg-card: rgba(15, 23, 42, 0.85);
+    --bg-panel: rgba(30, 41, 59, 0.7);
+
     --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
@@ -9,7 +19,7 @@
   body {
     margin: 0;
     font-family: var(--font-body);
-    background-color: #0b0f19;
+    background-color: var(--bg-dark);
     color: #f1f5f9;
     overflow-x: hidden;
   }
@@ -19,9 +29,9 @@
   }
 }
 
-/* Glassmorphism & Modern Card Utility Classes */
+/* Glassmorphism & Rapido-inspired Card Utility Classes */
 .glass-card {
-  background: rgba(15, 23, 42, 0.75);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -32,32 +42,78 @@
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(124, 169, 255, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 15px 35px -10px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 15px 35px -10px var(--brand-glow);
 }
 
 .glass-panel {
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--bg-panel);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-input {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f8fafc;
   transition: all 0.2s ease;
 }
 .glass-input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-  background: rgba(15, 23, 42, 0.85);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+  background: rgba(15, 23, 42, 0.95);
 }
 .glass-input::placeholder {
   color: #64748b;
+}
+
+/* Brand Primary Button */
+.btn-brand {
+  background-color: var(--brand-primary);
+  color: #0f172a;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px -2px var(--brand-glow);
+}
+.btn-brand:hover {
+  background-color: var(--brand-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 25px 0 var(--brand-glow);
+}
+.btn-brand:active {
+  transform: translateY(0);
+}
+
+.btn-brand-outline {
+  background-color: transparent;
+  border: 1px solid var(--brand-primary);
+  color: var(--brand-primary);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-brand-outline:hover {
+  background-color: rgba(124, 169, 255, 0.12);
+  border-color: var(--brand-primary-hover);
+  color: #ffffff;
+}
+
+/* Rapido Route Timeline Visual Connector */
+.route-timeline-connector {
+  position: relative;
+  padding-left: 1.5rem;
+}
+.route-timeline-connector::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  width: 2px;
+  background: linear-gradient(180deg, #10B981 0%, var(--brand-primary) 100%);
+  border-radius: 2px;
 }
 
 /* Custom Scrollbar */
@@ -69,11 +125,11 @@
   background: rgba(15, 23, 42, 0.5);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(124, 169, 255, 0.35);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
+  background: rgba(124, 169, 255, 0.7);
 }
 
 /* Leaflet Map Custom Styling */
@@ -86,16 +142,27 @@
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
   background: #0f172a !important;
   color: #f1f5f9 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(124, 169, 255, 0.25);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Glow effects */
-.glow-indigo {
-  box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.4);
+.glow-brand {
+  box-shadow: 0 0 25px -5px var(--brand-glow);
 }
 .glow-emerald {
   box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.4);
+}
+
+/* Text Brand */
+.text-brand {
+  color: var(--brand-primary);
+}
+.bg-brand {
+  background-color: var(--brand-primary);
+}
+.border-brand {
+  border-color: var(--brand-primary);
 }
 
 /* Animations */

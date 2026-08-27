@@ -68,8 +68,8 @@ export default function MyRequestsPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin mx-auto"></div>
-        <p className="text-sm font-medium text-slate-400">Loading your ride requests...</p>
+        <div className="w-10 h-10 rounded-full border-4 border-[#7CA9FF] border-t-transparent animate-spin mx-auto"></div>
+        <p className="text-xs font-bold text-slate-400">Loading your ride requests...</p>
       </div>
     );
   }
@@ -85,19 +85,19 @@ export default function MyRequestsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
         <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-slate-100 flex items-center gap-2">
+          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
             <span>📋</span> My Ride Requests
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             Track the status of your requested seats and trip confirmations.
           </p>
         </div>
         <Link
           to="/search"
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02] shrink-0 text-center"
+          className="px-4 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-extrabold shadow-md shadow-[#7CA9FF]/20 transition-all hover:scale-[1.02] shrink-0 text-center"
         >
           🔍 Search Rides
         </Link>
@@ -106,13 +106,13 @@ export default function MyRequestsPage() {
       {requests.length === 0 ? (
         <div className="glass-card rounded-3xl p-12 text-center border border-slate-800 space-y-3">
           <span className="text-4xl block opacity-40">🧳</span>
-          <p className="text-sm font-semibold text-slate-300">You haven't requested any rides yet</p>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <p className="text-sm font-bold text-white">You haven't requested any rides yet</p>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
             Find drivers travelling along your route and request seats for a hassle-free commute.
           </p>
           <Link
             to="/search"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold"
+            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#7CA9FF] text-slate-950 text-xs font-bold shadow-md shadow-[#7CA9FF]/20"
           >
             Find a Ride Now
           </Link>
@@ -131,13 +131,13 @@ export default function MyRequestsPage() {
                   </span>
                 </div>
 
-                <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <div className="text-sm font-extrabold text-white flex items-center gap-2">
                   <span className="truncate">{r.tripId?.origin?.address || 'Origin'}</span>
-                  <span className="text-indigo-400">→</span>
+                  <span className="text-[#7CA9FF]">→</span>
                   <span className="truncate">{r.tripId?.destination?.address || 'Destination'}</span>
                 </div>
 
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 font-semibold">
                   🕒 Departs: {formatDateTime(r.tripId?.departureTime)}
                 </p>
               </div>
@@ -146,16 +146,16 @@ export default function MyRequestsPage() {
                 {r.tripId?._id && (
                   <Link
                     to={`/trips/${r.tripId._id}`}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition-colors border border-slate-800"
                   >
-                    View Trip Details
+                    View Details
                   </Link>
                 )}
                 {['pending', 'accepted'].includes(r.status) && (
                   <button
                     disabled={busyId === r._id}
                     onClick={() => handleCancel(r._id)}
-                    className="px-3.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
+                    className="px-3.5 py-2 rounded-xl bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors disabled:opacity-50"
                   >
                     Cancel Request
                   </button>

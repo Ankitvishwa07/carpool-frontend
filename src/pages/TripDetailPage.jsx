@@ -18,8 +18,8 @@ function RatingForm({ label, onSubmit, busy }) {
   const [comment, setComment] = useState('');
 
   return (
-    <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-      <p className="text-xs font-semibold text-slate-200">{label}</p>
+    <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+      <p className="text-xs font-bold text-slate-200">{label}</p>
       <div className="flex gap-1.5">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -40,15 +40,15 @@ function RatingForm({ label, onSubmit, busy }) {
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Write a feedback comment (optional)..."
+        placeholder="Write feedback comment (optional)..."
         rows={2}
-        className="w-full glass-input rounded-xl px-3 py-2 text-xs"
+        className="w-full glass-input rounded-xl px-3 py-2 text-xs font-medium"
       />
       <button
         type="button"
         disabled={busy || stars === 0}
         onClick={() => onSubmit(stars, comment)}
-        className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors shadow-md shadow-indigo-600/20"
+        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-[#7CA9FF] hover:bg-[#6697FF] disabled:opacity-50 transition-colors shadow-md shadow-[#7CA9FF]/20"
       >
         Submit Rating
       </button>
@@ -218,16 +218,16 @@ export default function TripDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin mx-auto"></div>
-        <p className="text-sm font-medium text-slate-400">Loading trip details...</p>
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
+        <div className="w-10 h-10 rounded-full border-4 border-[#7CA9FF] border-t-transparent animate-spin mx-auto"></div>
+        <p className="text-xs font-bold text-slate-400">Loading trip itinerary...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
           ⚠️ {error}
         </div>
@@ -240,22 +240,24 @@ export default function TripDetailPage() {
   const acceptedRiders = incomingRequests.filter((r) => r.status === 'accepted');
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div>
         <Link
           to={isDriver ? '/my-trips' : '/my-requests'}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-indigo-300 transition-colors mb-2"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-[#7CA9FF] transition-colors mb-2"
         >
           <span>←</span> Back to Overview
         </Link>
       </div>
 
       {/* Trip Overview Hero Card */}
-      <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 shadow-2xl">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#7CA9FF]/10 rounded-full blur-[80px] pointer-events-none"></div>
+
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-2 flex-1 min-w-0">
+          <div className="space-y-3 flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#7CA9FF]/20 text-[#7CA9FF] border border-[#7CA9FF]/30">
                 {trip.status}
               </span>
               {isDriver && (
@@ -265,18 +267,25 @@ export default function TripDetailPage() {
               )}
             </div>
 
-            <h1 className="font-heading text-xl sm:text-2xl font-extrabold text-slate-100 flex items-center gap-2">
-              <span className="truncate">{trip.origin?.address || 'Origin'}</span>
-              <span className="text-indigo-400">→</span>
-              <span className="truncate">{trip.destination?.address || 'Destination'}</span>
-            </h1>
+            {/* Route Timeline Display */}
+            <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0"></span>
+                <span className="font-extrabold text-sm text-white truncate">{trip.origin?.address || 'Pickup Origin'}</span>
+              </div>
+              <div className="h-4 border-l-2 border-dashed border-slate-700 ml-1.5"></div>
+              <div className="flex items-center gap-3">
+                <span className="w-3 h-3 rounded-full bg-rose-500 shrink-0"></span>
+                <span className="font-extrabold text-sm text-white truncate">{trip.destination?.address || 'Drop-off Destination'}</span>
+              </div>
+            </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1 font-semibold">
               <span>🕒 Departs: {formatDateTime(trip.departureTime)}</span>
               <span>•</span>
               <span>💺 {trip.seatsBooked} / {trip.seatsTotal} booked</span>
               <span>•</span>
-              <span>👤 Driver: <strong className="text-slate-200">{trip.driverId?.name || 'Unknown'}</strong> (⭐ {trip.driverId?.ratingAverage?.toFixed(1) ?? 'N/A'})</span>
+              <span>👤 Driver: <strong className="text-white">{trip.driverId?.name || 'Driver'}</strong> (★ {trip.driverId?.ratingAverage?.toFixed(1) ?? 'N/A'})</span>
             </div>
           </div>
 
@@ -284,7 +293,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => completeTrip(id), 'Trip completed!')}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50 shrink-0"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50 shrink-0"
             >
               Mark Completed
             </button>
@@ -301,8 +310,8 @@ export default function TripDetailPage() {
       {/* Roster & Request Status Card */}
       {isDriver ? (
         <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-          <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300">
-            🙋‍♂️ Rider Requests ({incomingRequests.length})
+          <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span>🙋‍♂️</span> Rider Requests ({incomingRequests.length})
           </h2>
           {incomingRequests.length === 0 ? (
             <p className="text-xs text-slate-400 py-2">No rider requests for this trip yet.</p>
@@ -310,13 +319,13 @@ export default function TripDetailPage() {
             <div className="divide-y divide-slate-800">
               {incomingRequests.map((r) => (
                 <div key={r._id} className="py-3 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-indigo-950 border border-indigo-500/40 text-indigo-300 font-bold text-xs flex items-center justify-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#7CA9FF] text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
                       {r.riderId?.name?.[0]?.toUpperCase() || 'R'}
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-100">{r.riderId?.name || 'Rider'}</span>
-                      <span className="text-slate-400 ml-2">⭐ {r.riderId?.ratingAverage?.toFixed(1) ?? 'N/A'}</span>
+                      <span className="font-bold text-white">{r.riderId?.name || 'Rider'}</span>
+                      <span className="text-slate-400 ml-2 font-medium">★ {r.riderId?.ratingAverage?.toFixed(1) ?? 'N/A'}</span>
                       <span className="ml-2 capitalize text-slate-400">({r.status})</span>
                     </div>
                   </div>
@@ -326,14 +335,14 @@ export default function TripDetailPage() {
                       <button
                         disabled={busy}
                         onClick={() => runAction(() => acceptRequest(r._id), 'Accepted rider request')}
-                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm disabled:opacity-50"
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm disabled:opacity-50"
                       >
                         Accept
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => runAction(() => declineRequest(r._id), 'Declined rider request')}
-                        className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700 disabled:opacity-50"
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold border border-slate-700 disabled:opacity-50"
                       >
                         Decline
                       </button>
@@ -347,8 +356,8 @@ export default function TripDetailPage() {
       ) : (
         <div className="glass-card rounded-3xl p-6 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Your Request Status</p>
-            <p className="font-heading font-bold text-slate-100 capitalize mt-1">
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Your Request Status</p>
+            <p className="font-heading font-extrabold text-white capitalize mt-1 text-base">
               {myRequest?.status || 'Not requested'}
             </p>
           </div>
@@ -357,7 +366,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => createRequest(id), 'Seat requested successfully!')}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-bold shadow-lg shadow-[#7CA9FF]/20 transition-all disabled:opacity-50"
             >
               Request Seat
             </button>
@@ -367,7 +376,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => cancelRequest(myRequest._id), 'Request cancelled')}
-              className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors"
+              className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors"
             >
               Cancel Request
             </button>
@@ -375,25 +384,25 @@ export default function TripDetailPage() {
         </div>
       )}
 
-      {/* Real-time Socket Chat */}
+      {/* Real-time Live Chat */}
       <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
         <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-          <span>💬</span> Live Trip Chat
+          <span>💬</span> Live Commute Chat
         </h2>
 
         {!canChat ? (
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
             <span className="text-2xl block opacity-40">🔒</span>
-            <p className="text-xs text-slate-400">
-              Trip chat unlocks automatically once a rider request has been accepted.
+            <p className="text-xs text-slate-400 font-medium">
+              Live trip chat unlocks automatically once a rider request is accepted.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="h-72 overflow-y-auto rounded-2xl bg-slate-950/80 border border-slate-800 p-4 space-y-3 shadow-inner">
+            <div className="h-72 overflow-y-auto rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3 shadow-inner">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-slate-500 font-medium">
-                  No messages yet — say hi to your co-commuters!
+                  No messages yet — send a greeting to your co-commuters!
                 </div>
               ) : (
                 messages.map((m) => {
@@ -405,12 +414,12 @@ export default function TripDetailPage() {
                       <div
                         className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-md ${
                           isMe
-                            ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-br-none'
-                            : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/60'
+                            ? 'bg-[#7CA9FF] text-slate-950 font-semibold rounded-br-none'
+                            : 'bg-slate-900 text-slate-100 rounded-bl-none border border-slate-800'
                         }`}
                       >
                         {!isMe && m.senderId?.name && (
-                          <span className="block text-[10px] font-bold text-indigo-300 mb-0.5">
+                          <span className="block text-[10px] font-bold text-[#7CA9FF] mb-0.5">
                             {m.senderId.name}
                           </span>
                         )}
@@ -427,12 +436,12 @@ export default function TripDetailPage() {
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 glass-input rounded-xl px-4 py-2.5 text-xs"
+                placeholder="Type message to co-commuters..."
+                className="flex-1 glass-input rounded-xl px-4 py-2.5 text-xs font-semibold"
               />
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all shrink-0"
+                className="px-5 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-bold shadow-md shadow-[#7CA9FF]/20 transition-all shrink-0"
               >
                 Send
               </button>
@@ -441,7 +450,7 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* 5-Star Rating Section upon completion */}
+      {/* Rating Section upon completion */}
       {trip.status === 'completed' && (
         <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
           <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -461,7 +470,7 @@ export default function TripDetailPage() {
               <div className="space-y-3">
                 {acceptedRiders.map((r) =>
                   r.riderId?._id && (ratedIds.has(r.riderId._id) ? (
-                    <div key={r._id} className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2">
+                    <div key={r._id} className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
                       <span>✓</span> Rated {r.riderId.name}
                     </div>
                   ) : (
@@ -476,7 +485,7 @@ export default function TripDetailPage() {
               </div>
             )
           ) : trip.driverId?._id && (ratedIds.has(trip.driverId._id) ? (
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
               <span>✓</span> Rated driver {trip.driverId.name}
             </div>
           ) : myRequest?.status === 'accepted' ? (
@@ -486,7 +495,7 @@ export default function TripDetailPage() {
               onSubmit={(stars, comment) => handleRate(trip.driverId._id, stars, comment)}
             />
           ) : (
-            <p className="text-xs text-slate-400">You were not an accepted rider on this trip.</p>
+            <p className="text-xs text-slate-400 font-medium">You were not an accepted rider on this trip.</p>
           ))}
         </div>
       )}
