@@ -122,8 +122,8 @@ export default function LocationPicker({ label, value, onChange }) {
     const lng = parseFloat(place.lon);
     setQuery(place.display_name);
     setSuggestions([]);
-    mapRef.current.setView([lat, lng], 14);
-    markerRef.current.setLatLng([lat, lng]);
+    mapRef.current?.setView([lat, lng], 14);
+    markerRef.current?.setLatLng([lat, lng]);
     onChange({ lat, lng, address: place.display_name });
   };
 
@@ -142,15 +142,15 @@ export default function LocationPicker({ label, value, onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-          📍 {label}
+        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <span>📍</span> {label}
         </label>
         <button
           type="button"
           onClick={handleUseMyLocation}
-          className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-medium"
+          className="text-[11px] text-[#16A34A] hover:underline flex items-center gap-1 font-bold focus-ring rounded-lg px-1"
         >
-          🎯 Use My Location
+          <span>🎯</span> Use My Location
         </button>
       </div>
 
@@ -160,36 +160,36 @@ export default function LocationPicker({ label, value, onChange }) {
             value={query}
             onChange={handleSearchChange}
             placeholder="Search address or landmark..."
-            className="w-full glass-input rounded-xl px-4 py-2.5 text-sm pr-9 text-slate-100 placeholder:text-slate-500 shadow-inner"
+            className="w-full glass-input rounded-xl px-4 py-2.5 text-xs font-semibold pr-9 text-slate-900 placeholder:text-slate-400 focus-ring"
           />
           {loading && (
-            <div className="absolute right-3 w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+            <div className="absolute right-3 w-4 h-4 rounded-full border-2 border-[#16A34A] border-t-transparent animate-spin"></div>
           )}
         </div>
 
         {suggestions.length > 0 && (
-          <div className="absolute z-20 w-full bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-xl shadow-2xl mt-1.5 max-h-52 overflow-y-auto divide-y divide-slate-800">
+          <div className="absolute z-30 w-full bg-white border border-emerald-100 rounded-xl shadow-xl mt-1.5 max-h-52 overflow-y-auto divide-y divide-emerald-50">
             {suggestions.map((place) => (
               <button
                 type="button"
                 key={place.place_id}
                 onClick={() => handleSelectSuggestion(place)}
-                className="block w-full text-left px-3.5 py-2.5 text-xs text-slate-200 hover:bg-indigo-950/50 hover:text-indigo-200 transition-colors"
+                className="block w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-emerald-50 hover:text-[#16A34A] transition-colors focus-ring"
               >
-                <span className="font-semibold block truncate text-slate-100">{place.display_name.split(',')[0]}</span>
-                <span className="text-[11px] text-slate-400 truncate block">{place.display_name}</span>
+                <span className="font-bold block truncate text-slate-900">{place.display_name.split(',')[0]}</span>
+                <span className="text-[11px] text-slate-500 truncate block">{place.display_name}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 shadow-lg">
+      <div className="relative rounded-2xl overflow-hidden border border-emerald-200 shadow-sm">
         <div ref={mapContainerRef} className="w-full h-52 z-10" />
       </div>
 
-      <p className="text-[11px] text-slate-400 flex items-center gap-1">
-        <span>💡</span> Search an address, click the map, or drag the red pin to set the exact coordinate.
+      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+        <span>💡</span> Search an address, click the map, or drag the pin to select location.
       </p>
     </div>
   );

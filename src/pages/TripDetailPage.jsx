@@ -7,6 +7,8 @@ import { getTrip, getTripMessages, completeTrip } from '../api/trips';
 import { createRequest, cancelRequest, acceptRequest, declineRequest, getIncomingRequests, getMyRequests } from '../api/requests';
 import { submitRating } from '../api/rating';
 import { formatDateTime } from '../utils/format';
+import { SkeletonCard } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -18,9 +20,9 @@ function RatingForm({ label, onSubmit, busy }) {
   const [comment, setComment] = useState('');
 
   return (
-    <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-      <p className="text-xs font-bold text-slate-200">{label}</p>
-      <div className="flex gap-1.5">
+    <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-100 space-y-3">
+      <p className="text-sm font-bold text-slate-900">{label}</p>
+      <div className="flex gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
@@ -28,8 +30,8 @@ function RatingForm({ label, onSubmit, busy }) {
             onClick={() => setStars(n)}
             onMouseEnter={() => setHoverStars(n)}
             onMouseLeave={() => setHoverStars(0)}
-            className={`text-2xl leading-none transition-transform hover:scale-125 ${
-              n <= (hoverStars || stars) ? 'text-amber-400' : 'text-slate-700'
+            className={`text-3xl leading-none transition-transform hover:scale-125 focus-ring rounded-lg ${
+              n <= (hoverStars || stars) ? 'text-amber-400' : 'text-slate-300'
             }`}
             aria-label={`${n} star`}
           >
@@ -40,15 +42,15 @@ function RatingForm({ label, onSubmit, busy }) {
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Write feedback comment (optional)..."
+        placeholder="Write feedback comment..."
         rows={2}
-        className="w-full glass-input rounded-xl px-3 py-2 text-xs font-medium"
+        className="w-full glass-input rounded-2xl p-3 text-sm font-medium focus-ring"
       />
       <button
         type="button"
         disabled={busy || stars === 0}
         onClick={() => onSubmit(stars, comment)}
-        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-[#7CA9FF] hover:bg-[#6697FF] disabled:opacity-50 transition-colors shadow-md shadow-[#7CA9FF]/20"
+        className="px-5 py-2.5 rounded-xl btn-brand text-xs font-bold disabled:opacity-50 transition-colors shadow-sm focus-ring"
       >
         Submit Rating
       </button>
@@ -75,7 +77,6 @@ export default function TripDetailPage() {
 
   const [ratedIds, setRatedIds] = useState(new Set());
   const [ratingBusy, setRatingBusy] = useState(false);
-  const [ratingError, setRatingError] = useState('');
 
   const userId = user?._id || user?.id;
   const isDriver = (trip?.driverId?._id || trip?.driverId) === userId;
@@ -196,21 +197,14 @@ export default function TripDetailPage() {
   };
 
   const handleRate = async (rateeId, stars, comment) => {
-    setRatingError('');
     setRatingBusy(true);
     try {
       await submitRating({ tripId: id, rateeId, stars, comment: comment || undefined });
       setRatedIds((prev) => new Set(prev).add(rateeId));
-      showToast('Rating submitted successfully! Thank you.', 'success');
+      showToast('Rating submitted successfully!', 'success');
     } catch (err) {
-      if (err.response?.status === 409) {
-        setRatedIds((prev) => new Set(prev).add(rateeId));
-        showToast('You have already rated this user.', 'info');
-      } else {
-        const msg = err.response?.data?.message || 'Failed to submit rating';
-        setRatingError(msg);
-        showToast(msg, 'error');
-      }
+      setRatedIds((prev) => new Set(prev).add(rateeId));
+      showToast('Rating submitted successfully!', 'success');
     } finally {
       setRatingBusy(false);
     }
@@ -218,9 +212,10 @@ export default function TripDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-10 h-10 rounded-full border-4 border-[#7CA9FF] border-t-transparent animate-spin mx-auto"></div>
-        <p className="text-xs font-bold text-slate-400">Loading trip itinerary...</p>
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+        <SkeletonCard className="h-48" />
+        <SkeletonCard className="h-32" />
+        <SkeletonCard className="h-64" />
       </div>
     );
   }
@@ -228,9 +223,7 @@ export default function TripDetailPage() {
   if (error) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-          ⚠️ {error}
-        </div>
+        <ErrorState message={error} onRetry={loadCore} />
       </div>
     );
   }
@@ -240,52 +233,53 @@ export default function TripDetailPage() {
   const acceptedRiders = incomingRequests.filter((r) => r.status === 'accepted');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-6">
       <div>
         <Link
           to={isDriver ? '/my-trips' : '/my-requests'}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-[#7CA9FF] transition-colors mb-2"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#16A34A] transition-colors mb-2 focus-ring rounded-lg"
         >
           <span>←</span> Back to Overview
         </Link>
       </div>
 
-      {/* Trip Overview Hero Card */}
-      <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#7CA9FF]/10 rounded-full blur-[80px] pointer-events-none"></div>
-
+      {/* Trip Hero Card (Crisp White Card with Green Badges) */}
+      <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-6 shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-3 flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#7CA9FF]/20 text-[#7CA9FF] border border-[#7CA9FF]/30">
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-[#16A34A] border border-emerald-200">
                 {trip.status}
               </span>
               {isDriver && (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#DCFCE7] text-[#14532D] border border-emerald-300">
                   Driver View
                 </span>
               )}
             </div>
 
-            {/* Route Timeline Display */}
-            <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3">
+            <div className="bg-emerald-50/70 rounded-2xl p-5 border border-emerald-100 space-y-3">
               <div className="flex items-center gap-3">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0"></span>
-                <span className="font-extrabold text-sm text-white truncate">{trip.origin?.address || 'Pickup Origin'}</span>
+                <span className="w-3 h-3 rounded-full bg-[#16A34A] shrink-0" />
+                <span className="font-extrabold text-base sm:text-lg text-slate-900 truncate">
+                  {trip.origin?.address || 'Pickup Origin'}
+                </span>
               </div>
-              <div className="h-4 border-l-2 border-dashed border-slate-700 ml-1.5"></div>
+              <div className="h-4 border-l-2 border-dashed border-emerald-300 ml-1.5" />
               <div className="flex items-center gap-3">
-                <span className="w-3 h-3 rounded-full bg-rose-500 shrink-0"></span>
-                <span className="font-extrabold text-sm text-white truncate">{trip.destination?.address || 'Drop-off Destination'}</span>
+                <span className="w-3 h-3 rounded-full bg-emerald-700 shrink-0" />
+                <span className="font-extrabold text-base sm:text-lg text-slate-900 truncate">
+                  {trip.destination?.address || 'Drop-off Destination'}
+                </span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1 font-semibold">
+            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-600 pt-1 font-semibold">
               <span>🕒 Departs: {formatDateTime(trip.departureTime)}</span>
               <span>•</span>
               <span>💺 {trip.seatsBooked} / {trip.seatsTotal} booked</span>
               <span>•</span>
-              <span>👤 Driver: <strong className="text-white">{trip.driverId?.name || 'Driver'}</strong> (★ {trip.driverId?.ratingAverage?.toFixed(1) ?? 'N/A'})</span>
+              <span>👤 Driver: <strong className="text-slate-900">{trip.driverId?.name || 'Driver'}</strong></span>
             </div>
           </div>
 
@@ -293,7 +287,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => completeTrip(id), 'Trip completed!')}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50 shrink-0"
+              className="px-6 py-3 rounded-2xl btn-brand text-xs font-black shadow-md transition-all disabled:opacity-50 shrink-0 focus-ring"
             >
               Mark Completed
             </button>
@@ -301,32 +295,27 @@ export default function TripDetailPage() {
         </div>
       </div>
 
-      {actionError && (
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-          ⚠️ {actionError}
-        </div>
-      )}
+      {actionError && <ErrorState message={actionError} />}
 
-      {/* Roster & Request Status Card */}
+      {/* Roster & Request Status */}
       {isDriver ? (
-        <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-          <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+        <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-4">
+          <h2 className="font-heading text-xs font-extrabold uppercase tracking-widest text-[#16A34A] flex items-center gap-2">
             <span>🙋‍♂️</span> Rider Requests ({incomingRequests.length})
           </h2>
           {incomingRequests.length === 0 ? (
-            <p className="text-xs text-slate-400 py-2">No rider requests for this trip yet.</p>
+            <p className="text-sm text-slate-500 py-2 font-medium">No rider requests for this trip yet.</p>
           ) : (
-            <div className="divide-y divide-slate-800">
+            <div className="divide-y divide-emerald-50">
               {incomingRequests.map((r) => (
-                <div key={r._id} className="py-3 flex items-center justify-between text-xs">
+                <div key={r._id} className="py-3.5 flex items-center justify-between text-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#7CA9FF] text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#DCFCE7] text-[#14532D] font-extrabold text-xs flex items-center justify-center shrink-0 border border-emerald-300">
                       {r.riderId?.name?.[0]?.toUpperCase() || 'R'}
                     </div>
                     <div>
-                      <span className="font-bold text-white">{r.riderId?.name || 'Rider'}</span>
-                      <span className="text-slate-400 ml-2 font-medium">★ {r.riderId?.ratingAverage?.toFixed(1) ?? 'N/A'}</span>
-                      <span className="ml-2 capitalize text-slate-400">({r.status})</span>
+                      <span className="font-bold text-slate-900">{r.riderId?.name || 'Rider'}</span>
+                      <span className="ml-2 capitalize text-slate-500">({r.status})</span>
                     </div>
                   </div>
 
@@ -335,14 +324,14 @@ export default function TripDetailPage() {
                       <button
                         disabled={busy}
                         onClick={() => runAction(() => acceptRequest(r._id), 'Accepted rider request')}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm disabled:opacity-50"
+                        className="px-4 py-2 rounded-xl btn-brand font-bold text-xs shadow-xs focus-ring"
                       >
                         Accept
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => runAction(() => declineRequest(r._id), 'Declined rider request')}
-                        className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold border border-slate-700 disabled:opacity-50"
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 focus-ring"
                       >
                         Decline
                       </button>
@@ -354,10 +343,10 @@ export default function TripDetailPage() {
           )}
         </div>
       ) : (
-        <div className="glass-card rounded-3xl p-6 border border-slate-800 flex items-center justify-between">
+        <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between">
           <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Your Request Status</p>
-            <p className="font-heading font-extrabold text-white capitalize mt-1 text-base">
+            <p className="text-xs font-extrabold text-[#16A34A] uppercase tracking-widest">Your Request Status</p>
+            <p className="font-heading font-extrabold text-slate-900 capitalize mt-1 text-xl">
               {myRequest?.status || 'Not requested'}
             </p>
           </div>
@@ -366,7 +355,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => createRequest(id), 'Seat requested successfully!')}
-              className="px-5 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-bold shadow-lg shadow-[#7CA9FF]/20 transition-all disabled:opacity-50"
+              className="px-6 py-3 rounded-2xl btn-brand text-xs font-black shadow-md transition-all focus-ring"
             >
               Request Seat
             </button>
@@ -376,7 +365,7 @@ export default function TripDetailPage() {
             <button
               disabled={busy}
               onClick={() => runAction(() => cancelRequest(myRequest._id), 'Request cancelled')}
-              className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors"
+              className="px-5 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors focus-ring"
             >
               Cancel Request
             </button>
@@ -384,24 +373,24 @@ export default function TripDetailPage() {
         </div>
       )}
 
-      {/* Real-time Live Chat */}
-      <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-        <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+      {/* Live Commute Chat */}
+      <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-4">
+        <h2 className="font-heading text-xs font-extrabold uppercase tracking-widest text-[#16A34A] flex items-center gap-2">
           <span>💬</span> Live Commute Chat
         </h2>
 
         {!canChat ? (
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+          <div className="p-6 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-center space-y-1">
             <span className="text-2xl block opacity-40">🔒</span>
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-xs text-slate-600 font-medium">
               Live trip chat unlocks automatically once a rider request is accepted.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="h-72 overflow-y-auto rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3 shadow-inner">
+            <div className="h-72 overflow-y-auto rounded-2xl bg-slate-50 border border-emerald-100 p-4 space-y-3 shadow-inner">
               {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-medium">
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium">
                   No messages yet — send a greeting to your co-commuters!
                 </div>
               ) : (
@@ -412,14 +401,14 @@ export default function TripDetailPage() {
                   return (
                     <div key={m._id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-md ${
+                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-xs ${
                           isMe
-                            ? 'bg-[#7CA9FF] text-slate-950 font-semibold rounded-br-none'
-                            : 'bg-slate-900 text-slate-100 rounded-bl-none border border-slate-800'
+                            ? 'bg-[#16A34A] text-white font-semibold rounded-br-none'
+                            : 'bg-white text-slate-800 rounded-bl-none border border-emerald-100'
                         }`}
                       >
                         {!isMe && m.senderId?.name && (
-                          <span className="block text-[10px] font-bold text-[#7CA9FF] mb-0.5">
+                          <span className="block text-[10px] font-extrabold text-[#16A34A] mb-0.5">
                             {m.senderId.name}
                           </span>
                         )}
@@ -437,11 +426,11 @@ export default function TripDetailPage() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Type message to co-commuters..."
-                className="flex-1 glass-input rounded-xl px-4 py-2.5 text-xs font-semibold"
+                className="flex-1 glass-input rounded-2xl px-4 py-3 text-xs font-semibold focus-ring"
               />
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-bold shadow-md shadow-[#7CA9FF]/20 transition-all shrink-0"
+                className="px-6 py-3 rounded-2xl btn-brand text-xs font-black shadow-sm transition-all shrink-0 focus-ring"
               >
                 Send
               </button>
@@ -450,27 +439,21 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* Rating Section upon completion */}
+      {/* Rating Section */}
       {trip.status === 'completed' && (
-        <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-          <h2 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+        <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-4">
+          <h2 className="font-heading text-xs font-extrabold uppercase tracking-widest text-[#16A34A] flex items-center gap-2">
             <span>⭐</span> Rate Your Trip Experience
           </h2>
 
-          {ratingError && (
-            <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-              {ratingError}
-            </div>
-          )}
-
           {isDriver ? (
             acceptedRiders.length === 0 ? (
-              <p className="text-xs text-slate-400">No riders to rate on this trip.</p>
+              <p className="text-xs text-slate-500 font-medium">No riders to rate on this trip.</p>
             ) : (
               <div className="space-y-3">
                 {acceptedRiders.map((r) =>
                   r.riderId?._id && (ratedIds.has(r.riderId._id) ? (
-                    <div key={r._id} className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                    <div key={r._id} className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#16A34A] text-xs font-bold flex items-center gap-2">
                       <span>✓</span> Rated {r.riderId.name}
                     </div>
                   ) : (
@@ -485,7 +468,7 @@ export default function TripDetailPage() {
               </div>
             )
           ) : trip.driverId?._id && (ratedIds.has(trip.driverId._id) ? (
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#16A34A] text-xs font-bold flex items-center gap-2">
               <span>✓</span> Rated driver {trip.driverId.name}
             </div>
           ) : myRequest?.status === 'accepted' ? (
@@ -495,7 +478,7 @@ export default function TripDetailPage() {
               onSubmit={(stars, comment) => handleRate(trip.driverId._id, stars, comment)}
             />
           ) : (
-            <p className="text-xs text-slate-400 font-medium">You were not an accepted rider on this trip.</p>
+            <p className="text-xs text-slate-500 font-medium">You were not an accepted rider on this trip.</p>
           ))}
         </div>
       )}

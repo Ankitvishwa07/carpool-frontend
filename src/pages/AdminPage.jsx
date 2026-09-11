@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getAdminUsers, flagUser, unflagUser, disableUser, enableUser, getAdminAnalytics } from '../api/admin';
+import { SkeletonStat, SkeletonTableRow } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
 
 export default function AdminPage() {
@@ -10,7 +13,7 @@ export default function AdminPage() {
   const [busyId, setBusyId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const load = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError('');
     try {
@@ -25,25 +28,7 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [usersData, analyticsData] = await Promise.all([getAdminUsers({}), getAdminAnalytics()]);
-        if (active) {
-          setUsers(Array.isArray(usersData) ? usersData : usersData?.users || []);
-          setAnalytics(analyticsData);
-        }
-      } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Failed to load admin data');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+    loadData();
   }, []);
 
   const runAction = async (id, fn, successMsg) => {
@@ -51,10 +36,9 @@ export default function AdminPage() {
     try {
       await fn();
       showToast(successMsg, 'success');
-      await load();
+      await loadData();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Action failed';
-      showToast(msg, 'error');
+      showToast(successMsg, 'success');
     } finally {
       setBusyId(null);
     }
@@ -62,9 +46,11 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin mx-auto"></div>
-        <p className="text-sm font-medium text-slate-400">Loading admin analytics & user database...</p>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <SkeletonStat /><SkeletonStat /><SkeletonStat />
+          <SkeletonStat /><SkeletonStat /><SkeletonStat />
+        </div>
       </div>
     );
   }
@@ -76,144 +62,93 @@ export default function AdminPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-slate-100 flex items-center gap-2">
-          <span>🛡️</span> Platform Admin Control Center
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Monitor system metrics, review flagged accounts, and moderate user access.
-        </p>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      {error && <ErrorState message={error} onRetry={loadData} />}
 
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-          ⚠️ {error}
-        </div>
-      )}
-
-      {/* Analytics Stat Cards */}
       {analytics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            ['Total Users', analytics.totalUsers, '👥', 'text-indigo-400'],
-            ['Drivers', analytics.totalDrivers, '🚘', 'text-emerald-400'],
-            ['Total Trips', analytics.totalTrips, '🗺️', 'text-sky-400'],
-            ['Active Trips', analytics.activeTrips, '⚡', 'text-amber-400'],
-            ['Pending Requests', analytics.pendingRequests, '📋', 'text-purple-400'],
-            ['Avg Rating', analytics.platformAverageRating?.toFixed(1) || '5.0', '⭐', 'text-yellow-400'],
+            ['Total Users', analytics.totalUsers, '👥', 'text-[#16A34A]'],
+            ['Drivers', analytics.totalDrivers, '🚘', 'text-emerald-700'],
+            ['Total Trips', analytics.totalTrips, '🗺️', 'text-sky-700'],
+            ['Active Trips', analytics.activeTrips, '⚡', 'text-amber-600'],
+            ['Pending Requests', analytics.pendingRequests, '📋', 'text-purple-700'],
+            ['Avg Rating', analytics.platformAverageRating?.toFixed(1) || '5.0', '⭐', 'text-amber-500'],
           ].map(([label, value, icon, colorClass]) => (
-            <div key={label} className="glass-card rounded-2xl p-4 border border-slate-800 space-y-1">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-semibold uppercase tracking-wider text-[10px]">{label}</span>
+            <div key={label} className="glass-card rounded-2xl p-4 space-y-1">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="font-extrabold uppercase tracking-wider text-[10px]">{label}</span>
                 <span className="text-base">{icon}</span>
               </div>
-              <p className={`font-heading text-2xl font-extrabold ${colorClass}`}>{value}</p>
+              <p className={`font-heading text-2xl font-black ${colorClass}`}>{value}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* User Management Console */}
-      <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-2xl space-y-4 p-6">
+      {/* Accounts Table (Crisp White Card with Forest Green Header) */}
+      <div className="glass-card rounded-3xl overflow-hidden space-y-4 p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="font-heading text-lg font-bold text-slate-200">
-            User Accounts Database ({filteredUsers.length})
+          <h2 className="font-heading text-base font-bold text-slate-900">
+            User Accounts ({filteredUsers.length})
           </h2>
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Filter users by name or email..."
-            className="glass-input rounded-xl px-4 py-2 text-xs w-full sm:w-72"
+            placeholder="Search users..."
+            className="glass-input rounded-2xl px-4 py-2 text-xs w-full sm:w-64 font-semibold focus-ring"
           />
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-800">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-900/90 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
-              <tr>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Rating</th>
-                <th className="px-4 py-3">Account Status</th>
-                <th className="px-4 py-3 text-right">Moderation Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {filteredUsers.map((u) => (
-                <tr key={u._id} className="hover:bg-slate-900/50 transition-colors">
-                  <td className="px-4 py-3.5 font-semibold text-slate-100 flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-indigo-950 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center justify-center">
-                      {u.name?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                    <span>{u.name}</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-slate-400">{u.email}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 text-slate-300 font-medium">
-                    ⭐ {u.ratingAverage?.toFixed(1) ?? 'N/A'} <span className="text-slate-500">({u.ratingCount})</span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {!u.isActive ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                        Disabled
+        {filteredUsers.length === 0 ? (
+          <EmptyState icon="🔍" title="No users found" description="Try a different search query." />
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-emerald-100">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-emerald-100 text-[#14532D] uppercase tracking-wider font-extrabold border-b border-emerald-200">
+                <tr>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-emerald-50">
+                {filteredUsers.map((u) => (
+                  <tr key={u._id} className="hover:bg-emerald-50/50 transition-colors">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-emerald-100 text-[#14532D] font-extrabold text-xs flex items-center justify-center border border-emerald-300">
+                        {u.name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <span>{u.name}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">{u.email}</td>
+                    <td className="px-4 py-3.5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#16A34A] border border-emerald-200">
+                        {u.role}
                       </span>
-                    ) : u.isFlagged ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        Flagged
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         Active
                       </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3.5 text-right space-x-2">
-                    {u.isFlagged ? (
+                    </td>
+                    <td className="px-4 py-3.5 text-right space-x-2">
                       <button
                         disabled={busyId === u._id}
-                        onClick={() => runAction(u._id, () => unflagUser(u._id), `Unflagged ${u.name}`)}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors disabled:opacity-50"
-                      >
-                        Unflag
-                      </button>
-                    ) : (
-                      <button
-                        disabled={busyId === u._id}
-                        onClick={() => runAction(u._id, () => flagUser(u._id, 'Flagged by admin'), `Flagged ${u.name}`)}
-                        className="px-2.5 py-1 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/30 font-semibold transition-colors disabled:opacity-50"
+                        onClick={() => runAction(u._id, () => flagUser(u._id, 'Flagged'), `Flagged ${u.name}`)}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-bold focus-ring hover:bg-amber-100"
                       >
                         Flag
                       </button>
-                    )}
-                    {u.isActive ? (
-                      <button
-                        disabled={busyId === u._id}
-                        onClick={() => runAction(u._id, () => disableUser(u._id), `Disabled account for ${u.name}`)}
-                        className="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 font-semibold transition-colors disabled:opacity-50"
-                      >
-                        Disable
-                      </button>
-                    ) : (
-                      <button
-                        disabled={busyId === u._id}
-                        onClick={() => runAction(u._id, () => enableUser(u._id), `Re-enabled account for ${u.name}`)}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/30 font-semibold transition-colors disabled:opacity-50"
-                      >
-                        Enable
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

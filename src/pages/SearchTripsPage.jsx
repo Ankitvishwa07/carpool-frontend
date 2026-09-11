@@ -1,315 +1,288 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { searchTrips } from '../api/trips';
 import { createRequest } from '../api/requests';
-import { Link } from 'react-router-dom';
-import { formatDateTime } from '../utils/format';
 import LocationPicker from '../components/LocationPicker';
+import { SkeletonCard } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
 
+const CATEGORIES = ['All', 'Under ₹200', 'Morning Rides', 'Evening Rides'];
+
 export default function SearchTripsPage() {
-  const [origin, setOrigin] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [form, setForm] = useState({ time: '', radiusKm: 5, windowMinutes: 30 });
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
+  const [origin, setOrigin] = useState(() => {
+    const addr = searchParams.get('origin');
+    return addr ? { address: addr } : null;
+  });
+  const [destination, setDestination] = useState(() => {
+    const addr = searchParams.get('destination');
+    return addr ? { address: addr } : null;
+  });
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+
+  const [bookingTrip, setBookingTrip] = useState(null);
+  const [pickupNote, setPickupNote] = useState('');
+  const [booking, setBooking] = useState(false);
   const [requestedIds, setRequestedIds] = useState(new Set());
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!origin || !destination) {
-      const msg = 'Please set both a pickup point and drop-off destination on the map';
-      setError(msg);
-      showToast(msg, 'error');
-      return;
-    }
-
+  const fetchTrips = async () => {
     setSearching(true);
+    setError('');
     try {
-      const res = await searchTrips({
-        originLat: origin.lat,
-        originLng: origin.lng,
-        destLat: destination.lat,
-        destLng: destination.lng,
-        time: form.time || undefined,
-        radiusKm: form.radiusKm,
-        windowMinutes: form.windowMinutes,
+      const data = await searchTrips({
+        origin: origin?.address,
+        destination: destination?.address,
+        date,
       });
-      const tripsList = Array.isArray(res) ? res : res?.trips || [];
-      setResults(tripsList);
-      if (tripsList.length > 0) {
-        showToast(`Found ${tripsList.length} matching ride(s)!`, 'success');
-      }
+      const list = Array.isArray(data) ? data : data?.trips || [];
+      setResults(list);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Search failed';
-      setError(msg);
-      showToast(msg, 'error');
+      setError(err.response?.data?.message || 'Search failed. Please try again.');
     } finally {
       setSearching(false);
     }
   };
 
-  const handleRequest = async (tripId) => {
+  useEffect(() => {
+    fetchTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchTrips();
+  };
+
+  const handleBookSubmit = async (e) => {
+    e.preventDefault();
+    if (!bookingTrip) return;
+    setBooking(true);
     try {
-      await createRequest(tripId);
-      setRequestedIds((prev) => new Set(prev).add(tripId));
-      showToast('Seat requested successfully! The driver will be notified.', 'success');
+      await createRequest({
+        tripId: bookingTrip._id,
+        seatsRequested: 1,
+        pickupNote,
+      });
+      setRequestedIds((prev) => new Set([...prev, bookingTrip._id]));
+      showToast('Seat request submitted! Driver will be notified.', 'success');
+      setBookingTrip(null);
+      setPickupNote('');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Request failed';
+      const msg = err.response?.data?.message || 'Failed to request seat';
       showToast(msg, 'error');
+    } finally {
+      setBooking(false);
     }
   };
 
+  const filteredResults = results.filter((trip) => {
+    if (activeCategory === 'Under ₹200') return (trip.pricePerSeat || 0) <= 200;
+    if (activeCategory === 'Morning Rides') {
+      const h = new Date(trip.departureTime).getHours();
+      return h >= 6 && h < 12;
+    }
+    if (activeCategory === 'Evening Rides') {
+      const h = new Date(trip.departureTime).getHours();
+      return h >= 16 && h < 22;
+    }
+    return true;
+  });
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#7CA9FF]/20 text-[#7CA9FF] border border-[#7CA9FF]/30">
-              ⚡ Rapido Route Matcher
-            </span>
-          </div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            Find a Commute Ride
-          </h1>
-          <p className="text-xs text-slate-400">Specify your pick-up point and destination to match drivers.</p>
-        </div>
-      </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="grid lg:grid-cols-12 gap-6 items-start">
+        {/* Left Filter Card (4 cols) */}
+        <div className="lg:col-span-4 glass-card rounded-3xl p-6 sm:p-8 space-y-6 sticky top-24">
+          <h2 className="font-heading font-bold text-xl text-slate-900 tracking-tight">Find Rides</h2>
 
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3">
-          <span className="text-base shrink-0">⚠️</span>
-          <span>{error}</span>
-        </div>
-      )}
+          <form onSubmit={handleSearchSubmit} className="space-y-4">
+            <LocationPicker label="Pickup Location" value={origin} onChange={setOrigin} />
+            <LocationPicker label="Dropoff Location" value={destination} onChange={setDestination} />
 
-      {/* Main Spatial Search Container */}
-      <div className="grid lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Search Input Form & Trip List (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          <form onSubmit={handleSearch} className="glass-card rounded-3xl p-6 border border-slate-800 space-y-5 shadow-2xl">
-            <div className="space-y-4">
-              <LocationPicker label="Pick-Up Location" value={origin} onChange={setOrigin} />
-              <LocationPicker label="Drop-Off Destination" value={destination} onChange={setDestination} />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-800">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                  Time
-                </label>
-                <input
-                  name="time"
-                  type="time"
-                  value={form.time}
-                  onChange={handleChange}
-                  className="w-full glass-input rounded-xl px-3 py-2 text-xs font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                  Radius (km)
-                </label>
-                <input
-                  name="radiusKm"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={form.radiusKm}
-                  onChange={handleChange}
-                  className="w-full glass-input rounded-xl px-3 py-2 text-xs font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                  Window (min)
-                </label>
-                <input
-                  name="windowMinutes"
-                  type="number"
-                  min="1"
-                  max="240"
-                  value={form.windowMinutes}
-                  onChange={handleChange}
-                  className="w-full glass-input rounded-xl px-3 py-2 text-xs font-semibold"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <span>📅</span> Travel Date
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full glass-input rounded-xl px-4 py-2.5 text-xs font-semibold focus-ring"
+              />
             </div>
 
             <button
               type="submit"
               disabled={searching}
-              className="w-full bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 font-extrabold rounded-xl py-3.5 text-sm shadow-lg shadow-[#7CA9FF]/20 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl btn-brand text-xs font-black shadow-md focus-ring"
             >
-              {searching ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin"></div>
-                  <span>Matching Rides...</span>
-                </>
-              ) : (
-                <span>Search Available Rides</span>
-              )}
+              {searching ? 'Searching...' : 'Search Matching Rides'}
             </button>
           </form>
+        </div>
 
-          {/* Results List */}
-          {results !== null && (
+        {/* Right Search Results (8 cols) */}
+        <div className="lg:col-span-8 glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-emerald-100">
+            <h2 className="font-heading font-bold text-xl text-slate-900 tracking-tight">Available Commutes</h2>
+            <span className="text-xs text-slate-500 font-bold">
+              Found {filteredResults.length} rides
+            </span>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 transition-all focus-ring ${
+                  activeCategory === cat
+                    ? 'bg-[#16A34A] text-white shadow-sm font-extrabold'
+                    : 'bg-emerald-50 text-slate-700 hover:bg-emerald-100 border border-emerald-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Trips List */}
+          {searching ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-heading text-base font-bold text-white">
-                  Available Commutes ({results.length})
-                </h2>
-              </div>
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : error ? (
+            <ErrorState message={error} onRetry={fetchTrips} />
+          ) : filteredResults.length === 0 ? (
+            <EmptyState
+              icon="🚗"
+              title="No rides found"
+              description="Try adjusting your pickup or date filters to find matching rides."
+            />
+          ) : (
+            <div className="space-y-4">
+              {filteredResults.map((trip) => {
+                const isRequested = requestedIds.has(trip._id);
+                const seatsLeft = (trip.seatsTotal || 4) - (trip.seatsBooked || 0);
+                const depTimeStr = new Date(trip.departureTime).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
 
-              {results.length === 0 ? (
-                <div className="glass-card rounded-2xl p-10 text-center border border-slate-800 space-y-2">
-                  <span className="text-3xl block opacity-40">🚘</span>
-                  <p className="text-sm font-bold text-slate-200">No matching rides found</p>
-                  <p className="text-xs text-slate-400">
-                    Try expanding your search radius or modifying departure time window.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {results.map((trip) => {
-                    const seatsLeft = trip.seatsTotal - trip.seatsBooked;
-                    const isRequested = requestedIds.has(trip._id);
-
-                    return (
-                      <div
-                        key={trip._id}
-                        className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-800 space-y-4"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#7CA9FF] text-slate-950 font-extrabold text-sm flex items-center justify-center shrink-0">
-                              {trip.driverId?.name?.[0]?.toUpperCase() || 'D'}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-white">{trip.driverId?.name || 'Driver'}</span>
-                                {trip.driverId?.ratingAverage != null && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                    ★ {trip.driverId.ratingAverage.toFixed(1)}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-400">
-                                {trip.car?.make ? `${trip.car.make} ${trip.car.model || ''} (${trip.car.color || 'Car'})` : 'Verified Vehicle'}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <span className="text-lg font-extrabold text-[#7CA9FF]">₹{trip.pricePerSeat || 50}</span>
-                            <span className="text-[10px] text-slate-400 block">per seat</span>
-                          </div>
-                        </div>
-
-                        {/* Route Timeline */}
-                        <div className="bg-slate-900/80 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
-                          <div className="flex items-center gap-2.5 text-slate-200">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span className="font-semibold truncate">{trip.origin?.address || 'Pickup Point'}</span>
-                          </div>
-                          <div className="h-2 border-l-2 border-dashed border-slate-700 ml-1"></div>
-                          <div className="flex items-center gap-2.5 text-slate-200">
-                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-                            <span className="font-semibold truncate">{trip.destination?.address || 'Drop-off Destination'}</span>
-                          </div>
-                        </div>
-
-                        {/* Footer details & Action */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
-                          <div className="flex items-center gap-2 text-[11px]">
-                            <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-300 font-semibold border border-slate-800">
-                              🕒 {formatDateTime(trip.departureTime)}
-                            </span>
-                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
-                              💺 {seatsLeft} seat(s) left
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <Link
-                              to={`/trips/${trip._id}`}
-                              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold transition-colors"
-                            >
-                              Details
-                            </Link>
-                            <button
-                              onClick={() => handleRequest(trip._id)}
-                              disabled={isRequested || seatsLeft <= 0}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
-                                isRequested
-                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                                  : 'bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950'
-                              }`}
-                            >
-                              {isRequested ? '✓ Requested' : 'Request Seat'}
-                            </button>
-                          </div>
-                        </div>
+                return (
+                  <div
+                    key={trip._id}
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#16A34A]/50 hover:shadow-md transition-all group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Time Badge */}
+                      <div className="px-3.5 py-2.5 rounded-xl bg-[#DCFCE7] text-[#14532D] font-extrabold text-xs shrink-0 shadow-xs border border-emerald-300">
+                        {depTimeStr}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      <div className="space-y-1 min-w-0">
+                        <h3 className="font-bold text-sm text-slate-900 group-hover:text-[#16A34A] transition-colors truncate">
+                          {trip.origin?.address?.split(',')[0] || 'Origin'} <span className="text-[#16A34A]">→</span> {trip.destination?.address?.split(',')[0] || 'Destination'}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium truncate">
+                          💺 {seatsLeft} seats left • 👤 {trip.driverId?.name || 'Driver'} • ★ {trip.driverId?.ratingAverage?.toFixed(1) || '5.0'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-50">
+                      <span className="font-heading font-black text-xl text-slate-900">
+                        ₹{trip.pricePerSeat || 0}
+                      </span>
+                      <button
+                        disabled={seatsLeft <= 0 || isRequested}
+                        onClick={() => setBookingTrip(trip)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all focus-ring ${
+                          isRequested
+                            ? 'bg-emerald-100 text-[#16A34A] border border-emerald-200'
+                            : seatsLeft > 0
+                            ? 'btn-brand shadow-xs'
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isRequested ? 'Requested ✓' : seatsLeft > 0 ? 'Book Seat' : 'Full'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Right Column: Info & Interactive Map Highlights (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-            <h3 className="font-heading font-bold text-base text-white flex items-center gap-2">
-              <span>📍</span> Map & Pickup Radius
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Rapido smart route matching searches for drivers whose routes pass within your specified radius.
-            </p>
-
-            <div className="space-y-3 pt-2">
-              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold">
-                  1
-                </div>
-                <div className="text-xs">
-                  <span className="font-bold text-white block">Select Pickup Point</span>
-                  <span className="text-slate-400">Click map or search address</span>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-sm font-bold">
-                  2
-                </div>
-                <div className="text-xs">
-                  <span className="font-bold text-white block">Select Drop-Off Destination</span>
-                  <span className="text-slate-400">Set your destination workplace/home</span>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#7CA9FF]/20 text-[#7CA9FF] flex items-center justify-center text-sm font-bold">
-                  3
-                </div>
-                <div className="text-xs">
-                  <span className="font-bold text-white block">Instant Request & Match</span>
-                  <span className="text-slate-400">Request seats and track driver location</span>
-                </div>
-              </div>
+      {/* Seat Booking Modal */}
+      {bookingTrip && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl animate-bounce-once">
+            <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+              <h3 className="font-heading text-lg font-bold text-slate-900">Book Seat Request</h3>
+              <button
+                onClick={() => setBookingTrip(null)}
+                className="text-slate-400 hover:text-slate-900 font-bold p-1"
+              >
+                ✕
+              </button>
             </div>
+
+            <div className="space-y-2 text-xs">
+              <p className="font-bold text-slate-800">
+                Route: {bookingTrip.origin?.address?.split(',')[0]} → {bookingTrip.destination?.address?.split(',')[0]}
+              </p>
+              <p className="text-slate-500">
+                Driver: {bookingTrip.driverId?.name} • Fare: ₹{bookingTrip.pricePerSeat}/seat
+              </p>
+            </div>
+
+            <form onSubmit={handleBookSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Note to Driver (Optional)
+                </label>
+                <textarea
+                  value={pickupNote}
+                  onChange={(e) => setPickupNote(e.target.value)}
+                  placeholder="e.g. Waiting near Metro exit Gate 2..."
+                  rows={3}
+                  className="w-full glass-input rounded-xl p-3 text-xs font-semibold focus-ring resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBookingTrip(null)}
+                  className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={booking}
+                  className="w-1/2 py-3 rounded-xl btn-brand text-xs font-extrabold shadow-sm"
+                >
+                  {booking ? 'Submitting...' : 'Confirm Booking'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

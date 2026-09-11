@@ -1,226 +1,266 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import { getMyTrips } from '../api/trips';
+import { getMyRequests } from '../api/requests';
+import { SkeletonCard } from '../components/Skeleton';
+import { formatDateTime } from '../utils/format';
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const isDriver = user?.role === 'driver' || user?.role === 'admin';
 
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
+  const [myTrips, setMyTrips] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const [tripsRes, reqsRes] = await Promise.allSettled([getMyTrips(), getMyRequests()]);
+        if (!active) return;
+
+        if (tripsRes.status === 'fulfilled') {
+          const list = Array.isArray(tripsRes.value) ? tripsRes.value : tripsRes.value?.trips || [];
+          setMyTrips(list);
+        }
+        if (reqsRes.status === 'fulfilled') {
+          const list = Array.isArray(reqsRes.value) ? reqsRes.value : reqsRes.value?.requests || [];
+          setMyRequests(list);
+        }
+      } catch {
+        // non-fatal fallback
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleQuickSearch = (e) => {
     e.preventDefault();
     navigate(`/search?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`);
   };
 
+  const activeTrip = myTrips.find((t) => ['active', 'full'].includes(t.status)) || myTrips[0];
+  const upcomingCount = myTrips.length + myRequests.filter((r) => r.status === 'accepted').length;
+  const co2SavedKg = Math.round(upcomingCount * 4.2 + 8);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Welcome Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#7CA9FF]/20 text-[#7CA9FF] border border-[#7CA9FF]/30">
-              {user?.role === 'admin' ? '🛡️ Administrator' : isDriver ? '🚘 Driver Partner' : '⚡ Rapido Commuter'}
-            </span>
-            {user?.ratingAverage != null && user.ratingAverage > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                ★ {user.ratingAverage.toFixed(1)} ({user.ratingCount || 0})
-              </span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      {/* Top Main Grid: Left Hero Highlight (8 cols - Fresh Light Mint Green Card) + Right Stats (4 cols) */}
+      <div className="grid lg:grid-cols-12 gap-6 items-stretch">
+        {/* Left Hero Card (Light Mint Green accent identity block) */}
+        <div className="lg:col-span-8 bg-gradient-to-br from-[#DCFCE7] via-[#E8F5E9] to-white border border-emerald-300/80 rounded-3xl p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden min-h-[220px] shadow-xs">
+          <div className="space-y-3 relative z-10">
+            <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-widest text-[#15803D]">
+              <span>CURRENT COMMUTE</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[#166534] font-medium font-sans">STATUS</span>
+                <span className="text-sm font-extrabold text-[#14532D] uppercase px-3 py-1 rounded-full bg-white border border-emerald-300 shadow-2xs">
+                  {activeTrip?.status || 'Ready'}
+                </span>
+              </div>
+            </div>
+
+            <h2 className="font-heading font-extrabold text-2xl sm:text-4xl text-[#14532D] tracking-tight leading-tight">
+              {activeTrip ? (
+                <>
+                  {activeTrip.origin?.address?.split(',')[0] || 'Origin'} <br />
+                  <span className="text-[#16A34A]">→</span> {activeTrip.destination?.address?.split(',')[0] || 'Destination'}
+                </>
+              ) : (
+                <>
+                  Connect & Share <br />
+                  <span className="text-[#16A34A]">Daily Eco-Friendly Commutes</span>
+                </>
+              )}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-6 relative z-10">
+            <button
+              onClick={() => navigate(activeTrip ? `/trips/${activeTrip._id}` : '/search')}
+              className="px-6 py-3.5 rounded-full btn-brand text-xs font-black shadow-md transition-all flex items-center gap-2 focus-ring"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+              <span>{activeTrip ? 'View Trip Detail' : 'Explore Available Rides'}</span>
+            </button>
+
+            {user?.role === 'driver' && (
+              <button
+                onClick={() => navigate('/post-trip')}
+                className="px-6 py-3.5 rounded-full bg-white hover:bg-emerald-50 text-[#14532D] text-xs font-bold transition-all border border-emerald-300 focus-ring shadow-2xs"
+              >
+                + Offer a Ride
+              </button>
             )}
           </div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Welcome back, <span className="text-[#7CA9FF]">{user?.name}</span>
-          </h1>
-          <p className="text-xs text-slate-400">Where are you commuting today?</p>
         </div>
 
-        {/* Quick Action Badges */}
-        <div className="flex items-center gap-3 shrink-0">
-          <Link
-            to="/search"
-            className="px-4 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-bold shadow-md shadow-[#7CA9FF]/20 transition-all flex items-center gap-2"
-          >
-            <span>🔍</span> Find a Ride
-          </Link>
-          {isDriver && (
-            <Link
-              to="/post-trip"
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all flex items-center gap-2"
-            >
-              <span>🚘</span> Offer Seats
-            </Link>
-          )}
+        {/* Right Stats Column: Monthly Trips & CO2 Saved (Crisp White Cards with Light Green Highlights) */}
+        <div className="lg:col-span-4 grid sm:grid-cols-2 lg:grid-cols-1 gap-6">
+          {/* Monthly Trips Stat */}
+          <div className="glass-card rounded-3xl p-6 flex flex-col justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#16A34A]">
+              TOTAL ACTIVE RIDES
+            </span>
+            <div className="mt-4">
+              <div className="font-heading font-extrabold text-4xl sm:text-5xl text-slate-900 tracking-tight leading-none">
+                {upcomingCount}
+              </div>
+              <p className="text-xs font-bold text-[#16A34A] mt-2">+15% active engagement</p>
+            </div>
+          </div>
+
+          {/* CO2 Saved Stat */}
+          <div className="glass-card rounded-3xl p-6 flex flex-col justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#16A34A]">
+              ESTIMATED CO2 SAVED
+            </span>
+            <div className="mt-4 space-y-2">
+              <div className="font-heading font-extrabold text-4xl sm:text-5xl text-slate-900 tracking-tight leading-none flex items-baseline gap-1.5">
+                <span>{co2SavedKg}</span>
+                <span className="text-2xl sm:text-3xl font-bold text-[#16A34A]">kg</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-emerald-100 overflow-hidden">
+                <div className="h-full bg-[#16A34A] rounded-full w-4/5" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Split Grid: Left Rapido Booking Hero + Right Stats & Quick Actions */}
-      <div className="grid lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Rapido Quick Search Widget & Route Card (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Rapido Ride Booking Card */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#7CA9FF]/10 rounded-full blur-[80px] pointer-events-none"></div>
+      {/* Bottom Grid: Left "Find a ride" (5 cols) + Right "Scheduled Rides" (7 cols) */}
+      <div className="grid lg:grid-cols-12 gap-6 items-start">
+        {/* Find a ride widget (Crisp White Card with Green Form Controls) */}
+        <div className="lg:col-span-5 glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+          <h3 className="font-heading font-bold text-xl text-slate-900 tracking-tight">Quick Ride Search</h3>
 
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#7CA9FF] animate-pulse"></span>
-                <h2 className="font-heading font-extrabold text-lg text-white">Book Your Daily Commute</h2>
+          <form onSubmit={handleQuickSearch} className="space-y-4">
+            <div className="space-y-3">
+              <div className="relative flex items-center">
+                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+                <input
+                  type="text"
+                  placeholder="Pickup Location"
+                  value={pickup}
+                  onChange={(e) => setPickup(e.target.value)}
+                  className="w-full glass-input rounded-2xl pl-10 pr-4 py-3.5 text-xs font-semibold placeholder:text-slate-400 focus-ring"
+                />
               </div>
-              <span className="text-xs text-[#7CA9FF] font-semibold bg-[#7CA9FF]/10 px-2.5 py-1 rounded-lg border border-[#7CA9FF]/20">
-                ⚡ Instant Matching
-              </span>
+
+              <div className="relative flex items-center">
+                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <input
+                  type="text"
+                  placeholder="Where to?"
+                  value={dropoff}
+                  onChange={(e) => setDropoff(e.target.value)}
+                  className="w-full glass-input rounded-2xl pl-10 pr-4 py-3.5 text-xs font-semibold placeholder:text-slate-400 focus-ring"
+                />
+              </div>
             </div>
 
-            <form onSubmit={handleQuickSearch} className="space-y-4">
-              <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3 relative">
-                {/* Route Visual Line */}
-                <div className="absolute left-7 top-7 bottom-7 w-0.5 bg-gradient-to-b from-emerald-500 via-[#7CA9FF] to-rose-500 rounded-full"></div>
-
-                {/* Pickup Location */}
-                <div className="flex items-center gap-3 pl-8 relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20"></span>
-                  <input
-                    type="text"
-                    placeholder="Enter pickup location (e.g. Downtown Metro)"
-                    value={pickup}
-                    onChange={(e) => setPickup(e.target.value)}
-                    className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none py-1"
-                  />
-                </div>
-
-                <div className="h-px bg-slate-800 ml-8"></div>
-
-                {/* Dropoff Location */}
-                <div className="flex items-center gap-3 pl-8 relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-rose-500 ring-4 ring-rose-500/20"></span>
-                  <input
-                    type="text"
-                    placeholder="Enter destination (e.g. Tech Park Gateway)"
-                    value={dropoff}
-                    onChange={(e) => setDropoff(e.target.value)}
-                    className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none py-1"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-left">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">Leaving</span>
-                  <span className="text-xs font-bold text-slate-200 mt-0.5 block">Today / Tomorrow</span>
-                </div>
-                <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-left">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">Passengers</span>
-                  <span className="text-xs font-bold text-slate-200 mt-0.5 block">1 Seat</span>
-                </div>
-                <button
-                  type="submit"
-                  className="col-span-2 sm:col-span-1 bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 font-extrabold rounded-xl py-3 text-sm shadow-lg shadow-[#7CA9FF]/20 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span>🔍</span> Search
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Rapid Features Promo Banner */}
-          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-[#7CA9FF]/10 rounded-2xl p-6 border border-slate-800 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs font-bold text-[#7CA9FF] uppercase tracking-wider">🌱 Eco & Budget Friendly</span>
-              <h3 className="font-heading font-bold text-base text-white">Save up to 60% on daily commute fuel costs</h3>
-              <p className="text-xs text-slate-400">Verified campus and corporate commuters only.</p>
-            </div>
-            <div className="text-3xl shrink-0">🌿</div>
-          </div>
+            <button
+              type="submit"
+              className="w-full py-4 rounded-2xl btn-brand text-xs font-black shadow-md focus-ring mt-2"
+            >
+              Search Availability
+            </button>
+          </form>
         </div>
 
-        {/* Right Column: Stats & Quick Hub Tiles (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="glass-card rounded-2xl p-4 border border-slate-800 space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Rides</span>
-              <div className="text-2xl font-extrabold text-[#7CA9FF]">12</div>
-              <span className="text-[11px] text-emerald-400 font-medium">↑ 3 this week</span>
-            </div>
-            <div className="glass-card rounded-2xl p-4 border border-slate-800 space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">CO2 Reduced</span>
-              <div className="text-2xl font-extrabold text-emerald-400">28 kg</div>
-              <span className="text-[11px] text-slate-400 font-medium">Green commuter badge</span>
-            </div>
-          </div>
-
-          {/* Quick Hub Options */}
-          <div className="space-y-3">
-            <h3 className="font-heading font-bold text-sm text-slate-300 uppercase tracking-wider">Quick Navigation</h3>
-
-            <Link
-              to="/search"
-              className="glass-card glass-card-hover rounded-2xl p-4 border border-slate-800 flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#7CA9FF]/15 text-[#7CA9FF] border border-[#7CA9FF]/30 flex items-center justify-center text-lg font-bold group-hover:scale-105 transition-transform">
-                  🔍
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white group-hover:text-[#7CA9FF] transition-colors">Find a Commute Ride</h4>
-                  <p className="text-xs text-slate-400">Filter routes by distance, price, and departure time</p>
-                </div>
-              </div>
-              <span className="text-slate-500 group-hover:text-[#7CA9FF] group-hover:translate-x-1 transition-all">→</span>
-            </Link>
-
-            {isDriver && (
-              <Link
-                to="/post-trip"
-                className="glass-card glass-card-hover rounded-2xl p-4 border border-slate-800 flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-lg font-bold group-hover:scale-105 transition-transform">
-                    🚘
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">Post a New Trip</h4>
-                    <p className="text-xs text-slate-400">Share your car seats & offset travel expenses</p>
-                  </div>
-                </div>
-                <span className="text-slate-500 group-hover:text-emerald-300 group-hover:translate-x-1 transition-all">→</span>
-              </Link>
-            )}
-
-            <Link
-              to="/my-trips"
-              className="glass-card glass-card-hover rounded-2xl p-4 border border-slate-800 flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center justify-center text-lg font-bold group-hover:scale-105 transition-transform">
-                  🛵
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">My Active & Past Trips</h4>
-                  <p className="text-xs text-slate-400">Track current status and manage rider bookings</p>
-                </div>
-              </div>
-              <span className="text-slate-500 group-hover:text-purple-300 group-hover:translate-x-1 transition-all">→</span>
-            </Link>
-
-            <Link
-              to="/my-requests"
-              className="glass-card glass-card-hover rounded-2xl p-4 border border-slate-800 flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center justify-center text-lg font-bold group-hover:scale-105 transition-transform">
-                  📋
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">Ride Requests</h4>
-                  <p className="text-xs text-slate-400">View status of your submitted seat requests</p>
-                </div>
-              </div>
-              <span className="text-slate-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-all">→</span>
+        {/* Scheduled Rides (Crisp White Card with Light Green Badges) */}
+        <div className="lg:col-span-7 glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading font-bold text-xl text-slate-900 tracking-tight">Your Scheduled Rides</h3>
+            <Link to="/my-trips" className="text-xs text-[#16A34A] hover:underline font-bold focus-ring rounded-lg">
+              View All Rides →
             </Link>
           </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : myTrips.length === 0 && myRequests.length === 0 ? (
+            <div className="p-8 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-center space-y-2">
+              <span className="text-3xl block">🚗</span>
+              <p className="text-sm font-bold text-slate-800">No scheduled rides yet</p>
+              <p className="text-xs text-slate-500">Find a ride or post your route to start carpooling.</p>
+              <div className="pt-2">
+                <button
+                  onClick={() => navigate('/search')}
+                  className="px-5 py-2.5 rounded-xl btn-brand text-xs font-bold"
+                >
+                  Search Rides
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myTrips.slice(0, 3).map((t) => (
+                <div
+                  key={t._id}
+                  onClick={() => navigate(`/trips/${t._id}`)}
+                  className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 flex items-center justify-between gap-4 hover:border-[#16A34A]/40 hover:bg-emerald-50/80 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#16A34A] font-black text-xs flex items-center justify-center shrink-0 border border-emerald-200">
+                      🚗
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-[#16A34A] transition-colors truncate">
+                        {t.origin?.address?.split(',')[0] || 'Origin'} → {t.destination?.address?.split(',')[0] || 'Destination'}
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        {formatDateTime(t.departureTime)} • 💺 {t.seatsTotal - t.seatsBooked} seats left
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-[#16A34A] border border-emerald-200 shrink-0">
+                    {t.status}
+                  </span>
+                </div>
+              ))}
+
+              {myRequests.slice(0, 2).map((r) => (
+                <div
+                  key={r._id}
+                  onClick={() => navigate(r.tripId?._id ? `/trips/${r.tripId._id}` : '/my-requests')}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4 hover:border-[#16A34A]/40 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#16A34A] font-black text-xs flex items-center justify-center shrink-0 border border-emerald-200">
+                      🙋‍♂️
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-[#16A34A] transition-colors truncate">
+                        Request for {r.tripId?.origin?.address?.split(',')[0] || 'Trip'}
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Status: <span className="capitalize font-bold text-slate-700">{r.status}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-slate-200 text-slate-700 shrink-0">
+                    {r.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

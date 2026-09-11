@@ -1,24 +1,26 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getMyTrips, cancelTrip, completeTrip } from '../api/trips';
-import { getIncomingRequests, acceptRequest, declineRequest } from '../api/requests';
+import { Link, useNavigate } from 'react-router-dom';
+import { getMyTrips, cancelTrip } from '../api/trips';
+import { SkeletonCard } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import { formatDateTime } from '../utils/format';
 import { showToast } from '../utils/toast';
 
 export default function MyTripsPage() {
+  const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
-  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
 
-  const loadData = async () => {
+  const fetchTrips = async () => {
     setLoading(true);
     setError('');
     try {
-      const [tripsRes, requestsRes] = await Promise.all([getMyTrips(), getIncomingRequests()]);
-      setTrips(Array.isArray(tripsRes) ? tripsRes : tripsRes?.trips || []);
-      setRequests(Array.isArray(requestsRes) ? requestsRes : requestsRes?.requests || []);
+      const data = await getMyTrips();
+      const list = Array.isArray(data) ? data : data?.trips || [];
+      setTrips(list);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load your trips');
     } finally {
@@ -27,243 +29,136 @@ export default function MyTripsPage() {
   };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [tripsRes, requestsRes] = await Promise.all([getMyTrips(), getIncomingRequests()]);
-        if (active) {
-          setTrips(Array.isArray(tripsRes) ? tripsRes : tripsRes?.trips || []);
-          setRequests(Array.isArray(requestsRes) ? requestsRes : requestsRes?.requests || []);
-        }
-      } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Failed to load your trips');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+    fetchTrips();
   }, []);
 
-  const runAction = async (id, fn, successMsg) => {
-    setBusyId(id);
+  const handleCancel = async (e, tripId) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to cancel this trip?')) return;
+    setCancellingId(tripId);
     try {
-      await fn();
-      showToast(successMsg, 'success');
-      await loadData();
+      await cancelTrip(tripId);
+      showToast('Trip cancelled successfully', 'success');
+      await fetchTrips();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Action failed';
+      const msg = err.response?.data?.message || 'Failed to cancel trip';
       showToast(msg, 'error');
     } finally {
-      setBusyId(null);
+      setCancellingId(null);
     }
   };
 
-  const handleCancel = (id) => {
-    if (!confirm('Cancel this trip? Accepted riders will be notified.')) return;
-    runAction(id, () => cancelTrip(id), 'Trip cancelled successfully');
-  };
-
-  const handleComplete = (id) => {
-    runAction(id, () => completeTrip(id), 'Trip marked as completed!');
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-10 h-10 rounded-full border-4 border-[#7CA9FF] border-t-transparent animate-spin mx-auto"></div>
-        <p className="text-xs font-bold text-slate-400">Loading your trips...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-          ⚠️ {error}
-        </div>
-      </div>
-    );
-  }
-
-  const requestsByTrip = requests.reduce((acc, r) => {
-    const tripId = r.tripId?._id;
-    if (tripId) {
-      acc[tripId] = acc[tripId] || [];
-      acc[tripId].push(r);
-    }
-    return acc;
-  }, {});
-
-  const statusBadgeClass = (status) => {
-    switch (status) {
-      case 'active':
-        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-      case 'full':
-        return 'bg-[#7CA9FF]/20 text-[#7CA9FF] border-[#7CA9FF]/30';
-      case 'completed':
-        return 'bg-sky-500/20 text-sky-300 border-sky-500/30';
-      case 'cancelled':
-        return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-      default:
-        return 'bg-slate-800 text-slate-300 border-slate-700';
-    }
-  };
+  const activeCount = trips.filter((t) => ['active', 'full'].includes(t.status)).length;
+  const completedCount = trips.filter((t) => t.status === 'completed').length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
-        <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <span>🛵</span> My Posted Commutes
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage your trips, approve incoming rider requests, and update ride statuses.
-          </p>
-        </div>
-        <Link
-          to="/post-trip"
-          className="px-4 py-2.5 rounded-xl bg-[#7CA9FF] hover:bg-[#6697FF] text-slate-950 text-xs font-extrabold shadow-md shadow-[#7CA9FF]/20 transition-all hover:scale-[1.02] shrink-0 text-center"
-        >
-          ➕ Post New Trip
-        </Link>
-      </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="grid lg:grid-cols-12 gap-6 items-start">
+        {/* Left Card: Trip Summary (4 cols - Light Mint Green accent card) */}
+        <div className="lg:col-span-4 glass-card-dark rounded-3xl p-6 sm:p-8 space-y-8">
+          <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-[#14532D] tracking-tight">Driver Summary</h2>
 
-      {trips.length === 0 ? (
-        <div className="glass-card rounded-3xl p-12 text-center border border-slate-800 space-y-3">
-          <span className="text-4xl block opacity-40">🚘</span>
-          <p className="text-sm font-bold text-white">You haven't posted any trips yet</p>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Offer your extra car seats when commuting and save fuel costs.
-          </p>
-          <Link
-            to="/post-trip"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#7CA9FF] text-slate-950 text-xs font-bold shadow-md shadow-[#7CA9FF]/20"
-          >
-            Post Your First Trip
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {trips.map((trip) => {
-            const pendingRequests = requestsByTrip[trip._id]?.filter((r) => r.status === 'pending') || [];
+          <div className="space-y-6">
+            <div>
+              <span className="text-xs font-extrabold uppercase tracking-widest text-[#16A34A] block">
+                TOTAL OFFERED TRIPS
+              </span>
+              <span className="font-heading font-extrabold text-6xl sm:text-7xl text-slate-900 mt-1 block tracking-tight">
+                {trips.length}
+              </span>
+            </div>
 
-            return (
-              <div key={trip._id} className="glass-card glass-card-hover rounded-2xl p-6 border border-slate-800 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusBadgeClass(trip.status)}`}>
-                        {trip.status}
-                      </span>
-                      {trip.isRecurring && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7CA9FF]/10 text-[#7CA9FF] border border-[#7CA9FF]/30">
-                          🔁 Weekly Recurring
-                        </span>
-                      )}
+            <div>
+              <span className="text-xs font-extrabold uppercase tracking-widest text-[#16A34A] block">
+                ACTIVE RIDES
+              </span>
+              <span className="font-heading font-extrabold text-6xl sm:text-7xl text-slate-900 mt-1 block tracking-tight">
+                {activeCount}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs font-extrabold uppercase tracking-widest text-[#16A34A] block">
+                COMPLETED COMMUTES
+              </span>
+              <span className="font-heading font-extrabold text-6xl sm:text-7xl text-slate-900 mt-1 block tracking-tight">
+                {completedCount}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Card: All Offered Trips (8 cols - Crisp White Card) */}
+        <div className="lg:col-span-8 glass-card rounded-3xl p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">My Offered Rides</h2>
+            <Link
+              to="/post-trip"
+              className="px-4 py-2 rounded-xl btn-brand text-xs font-bold shadow-xs focus-ring"
+            >
+              + Post New Ride
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : error ? (
+            <ErrorState message={error} onRetry={fetchTrips} />
+          ) : trips.length === 0 ? (
+            <EmptyState
+              icon="🛵"
+              title="No trips offered yet"
+              description="Share your empty seats with co-commuters to save fuel costs and CO2."
+              actionLabel="Offer a Ride"
+              onAction={() => navigate('/post-trip')}
+            />
+          ) : (
+            <div className="space-y-3">
+              {trips.map((t) => (
+                <div
+                  key={t._id}
+                  onClick={() => navigate(`/trips/${t._id}`)}
+                  className="p-4 sm:p-5 rounded-2xl bg-white border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#16A34A]/50 hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#16A34A] flex items-center justify-center font-black text-sm shrink-0 border border-emerald-200">
+                      🚗
                     </div>
 
-                    {/* Route preview */}
-                    <div className="text-sm font-extrabold text-white flex items-center gap-2">
-                      <span className="truncate">{trip.origin?.address || 'Origin'}</span>
-                      <span className="text-[#7CA9FF]">→</span>
-                      <span className="truncate">{trip.destination?.address || 'Destination'}</span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-medium">
-                      <span>🕒 Departs: {formatDateTime(trip.departureTime)}</span>
-                      <span>•</span>
-                      <span>💺 {trip.seatsBooked} / {trip.seatsTotal} seats booked</span>
-                      <span>•</span>
-                      <span className="text-[#7CA9FF] font-bold">₹{trip.pricePerSeat || 50} / seat</span>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-base text-slate-900 group-hover:text-[#16A34A] transition-colors truncate">
+                        {t.origin?.address?.split(',')[0] || 'Origin'} <span className="text-[#16A34A]">→</span> {t.destination?.address?.split(',')[0] || 'Destination'}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        🕒 {formatDateTime(t.departureTime)} • 💺 {t.seatsBooked}/{t.seatsTotal} booked
+                      </p>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                    <Link
-                      to={`/trips/${trip._id}`}
-                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition-colors border border-slate-800"
-                    >
-                      View Details
-                    </Link>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-50">
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-[#16A34A] border border-emerald-200">
+                      {t.status}
+                    </span>
 
-                    {['active', 'full'].includes(trip.status) && (
-                      <>
-                        <button
-                          disabled={busyId === trip._id}
-                          onClick={() => handleComplete(trip._id)}
-                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50"
-                        >
-                          Completed
-                        </button>
-                        <button
-                          disabled={busyId === trip._id}
-                          onClick={() => handleCancel(trip._id)}
-                          className="px-3.5 py-2 rounded-xl bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-xs font-bold transition-colors disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                      </>
+                    {['active', 'full'].includes(t.status) && (
+                      <button
+                        onClick={(e) => handleCancel(e, t._id)}
+                        disabled={cancellingId === t._id}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors"
+                      >
+                        {cancellingId === t._id ? 'Cancelling...' : 'Cancel'}
+                      </button>
                     )}
                   </div>
                 </div>
-
-                {/* Pending Requests Section */}
-                {pendingRequests.length > 0 && (
-                  <div className="pt-4 border-t border-slate-800 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                        🙋‍♂️ Pending Rider Requests ({pendingRequests.length})
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      {pendingRequests.map((r) => (
-                        <div
-                          key={r._id}
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[#7CA9FF] text-slate-950 font-extrabold text-xs flex items-center justify-center">
-                              {r.riderId?.name?.[0]?.toUpperCase() || 'R'}
-                            </div>
-                            <div>
-                              <span className="font-bold text-white">{r.riderId?.name || 'Rider'}</span>
-                              <span className="text-slate-400 ml-2 font-medium">★ {r.riderId?.ratingAverage?.toFixed(1) ?? 'N/A'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              disabled={busyId === r._id}
-                              onClick={() => runAction(r._id, () => acceptRequest(r._id), `Accepted request from ${r.riderId?.name || 'rider'}`)}
-                              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              disabled={busyId === r._id}
-                              onClick={() => runAction(r._id, () => declineRequest(r._id), 'Declined rider request')}
-                              className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 disabled:opacity-50"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

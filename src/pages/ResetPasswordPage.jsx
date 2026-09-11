@@ -11,14 +11,19 @@ export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | saving | done
+  const [status, setStatus] = useState('idle');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (!token) {
-      setError('This reset link is missing its token. Please request a new one.');
+      setError('This reset link is missing its token.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
       return;
     }
 
@@ -37,34 +42,34 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="glass-card rounded-3xl p-8 sm:p-10 shadow-2xl border border-slate-800">
+    <div className="min-h-screen bg-[#F4F9F5] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md relative z-10">
+        <div className="glass-card rounded-3xl p-8 sm:p-10 border border-emerald-100 shadow-xl">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 text-2xl flex items-center justify-center mx-auto mb-3 border border-indigo-500/30">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 border border-emerald-200 mx-auto mb-4 flex items-center justify-center text-[#16A34A] font-black shadow-xs">
               🔒
             </div>
-            <h1 className="font-heading text-2xl font-bold text-slate-100">Set New Password</h1>
-            <p className="text-xs text-slate-400 mt-1">Create a strong new password for your account</p>
+            <h1 className="font-heading text-2xl font-black text-slate-900 tracking-tight">Set New Password</h1>
+            <p className="text-xs text-slate-500 mt-1">Create strong password for your account</p>
           </div>
 
           {status === 'done' ? (
-            <div className="p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 text-xs text-center space-y-2">
-              <span className="text-2xl block">✅</span>
-              <p className="font-semibold text-sm">Password Updated!</p>
-              <p className="text-emerald-400">Redirecting to login screen...</p>
+            <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#16A34A] text-xs text-center space-y-2">
+              <span className="text-3xl block">✅</span>
+              <p className="font-extrabold text-sm text-slate-900">Password Updated!</p>
+              <p>Redirecting to login...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs">
-                  {error}
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                  ⚠️ {error}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  New Password <span className="text-slate-500 font-normal text-[11px]">(min. 8 characters)</span>
+                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+                  New Password <span className="text-slate-400 font-normal">(min 8 chars)</span>
                 </label>
                 <div className="relative">
                   <input
@@ -74,12 +79,12 @@ export default function ResetPasswordPage() {
                     placeholder="••••••••"
                     required
                     minLength={8}
-                    className="w-full glass-input rounded-xl px-4 py-3 text-sm pr-11"
+                    className="w-full glass-input rounded-2xl px-4 py-3.5 text-xs font-semibold pr-12 focus-ring"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs px-1"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 text-xs font-semibold px-1 focus-ring rounded-lg"
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
@@ -89,22 +94,15 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={status === 'saving'}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl py-3 text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl btn-brand font-black text-xs shadow-md transition-all focus-ring"
               >
-                {status === 'saving' ? (
-                  <>
-                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
-                    <span>Saving new password...</span>
-                  </>
-                ) : (
-                  <span>Update Password</span>
-                )}
+                {status === 'saving' ? 'Saving password...' : 'Update Password'}
               </button>
             </form>
           )}
 
-          <p className="text-xs text-slate-400 mt-6 text-center">
-            <Link to="/login" className="text-indigo-400 font-semibold hover:text-indigo-300 hover:underline">
+          <p className="text-xs text-slate-500 mt-6 text-center">
+            <Link to="/login" className="text-[#16A34A] font-bold hover:underline focus-ring rounded-lg">
               Back to Login
             </Link>
           </p>

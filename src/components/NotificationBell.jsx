@@ -4,13 +4,13 @@ import { getMyNotifications, markNotificationRead, markAllNotificationsRead } fr
 import { getNotificationSocket } from '../api/socket';
 
 const TYPE_CONFIG = {
-  request_received: { label: 'New ride request', icon: '🙋‍♂️', color: 'text-indigo-400' },
-  request_accepted: { label: 'Request accepted!', icon: '✅', color: 'text-emerald-400' },
-  request_declined: { label: 'Request declined', icon: '❌', color: 'text-rose-400' },
-  request_cancelled: { label: 'Rider cancelled', icon: '⚠️', color: 'text-amber-400' },
-  new_message: { label: 'New message', icon: '💬', color: 'text-sky-400' },
-  rating_received: { label: 'New rating', icon: '⭐', color: 'text-yellow-400' },
-  trip_cancelled: { label: 'Trip cancelled', icon: '🚫', color: 'text-rose-400' },
+  request_received: { label: 'New ride request', icon: '🙋‍♂️', color: 'text-emerald-700' },
+  request_accepted: { label: 'Request accepted!', icon: '✅', color: 'text-emerald-600' },
+  request_declined: { label: 'Request declined', icon: '❌', color: 'text-rose-600' },
+  request_cancelled: { label: 'Rider cancelled', icon: '⚠️', color: 'text-amber-600' },
+  new_message: { label: 'New message', icon: '💬', color: 'text-sky-600' },
+  rating_received: { label: 'New rating', icon: '⭐', color: 'text-amber-500' },
+  trip_cancelled: { label: 'Trip cancelled', icon: '🚫', color: 'text-rose-600' },
 };
 
 export default function NotificationBell() {
@@ -73,24 +73,28 @@ export default function NotificationBell() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen((p) => !p)}
-        className="relative p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all border border-transparent hover:border-slate-700/50"
+        className="relative p-2.5 rounded-2xl text-slate-600 hover:text-slate-900 hover:bg-emerald-50 transition-all border border-emerald-200 focus-ring bg-white"
         aria-label="Notifications"
       >
-        <span className="text-lg leading-none">🔔</span>
+        {/* Sleek SVG Bell Line Icon */}
+        <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[10px] font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-slate-900 animate-badge-pulse shadow-lg shadow-rose-500/50">
+          <span className="absolute -top-1 -right-1 bg-[#16A34A] text-white text-[10px] font-black rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center border-2 border-white shadow-sm">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-850 border-b border-slate-800">
+        <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-emerald-100 rounded-3xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between px-5 py-4 bg-emerald-50/70 border-b border-emerald-100">
             <div className="flex items-center gap-2">
-              <span className="font-heading font-semibold text-sm text-slate-100">Notifications</span>
+              <span className="font-heading font-extrabold text-sm text-slate-900">Notifications</span>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#16A34A]/15 text-[#16A34A] border border-[#16A34A]/30">
                   {unreadCount} new
                 </span>
               )}
@@ -98,23 +102,23 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline font-medium"
+                className="text-xs text-[#16A34A] hover:underline font-bold"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60">
+          <div className="max-h-80 overflow-y-auto divide-y divide-emerald-50">
             {notifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
                 <span className="text-3xl block opacity-40">🔕</span>
-                <p className="text-sm text-slate-400 font-medium">No notifications yet</p>
+                <p className="text-sm text-slate-800 font-bold">No notifications yet</p>
                 <p className="text-xs text-slate-500">We'll alert you here for updates on your rides.</p>
               </div>
             ) : (
               notifications.map((n) => {
-                const config = TYPE_CONFIG[n.type] || { label: n.title || 'Notification', icon: '📢', color: 'text-indigo-400' };
+                const config = TYPE_CONFIG[n.type] || { label: n.title || 'Notification', icon: '📢', color: 'text-emerald-700' };
                 return (
                   <Link
                     key={n._id}
@@ -123,21 +127,21 @@ export default function NotificationBell() {
                       handleItemClick(n);
                       setOpen(false);
                     }}
-                    className={`flex items-start gap-3 p-3.5 transition-colors ${
-                      n.isRead ? 'bg-transparent opacity-75 hover:bg-slate-800/40' : 'bg-indigo-950/30 hover:bg-indigo-900/40'
+                    className={`flex items-start gap-3.5 p-4 transition-colors ${
+                      n.isRead ? 'bg-transparent opacity-70 hover:bg-emerald-50/50' : 'bg-emerald-50/30 hover:bg-emerald-50/80'
                     }`}
                   >
-                    <div className="text-xl shrink-0 p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/50">
+                    <div className="text-xl shrink-0 p-2 rounded-2xl bg-emerald-100/60 border border-emerald-200">
                       {config.icon}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <p className={`text-xs font-semibold ${config.color}`}>{config.label}</p>
+                        <p className={`text-xs font-bold ${config.color}`}>{config.label}</p>
                         {!n.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                          <span className="w-2 h-2 rounded-full bg-[#16A34A] shrink-0"></span>
                         )}
                       </div>
-                      {n.body && <p className="text-xs text-slate-300 mt-1 line-clamp-2 leading-relaxed">{n.body}</p>}
+                      {n.body && <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">{n.body}</p>}
                     </div>
                   </Link>
                 );
