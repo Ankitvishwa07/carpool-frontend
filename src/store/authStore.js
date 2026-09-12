@@ -43,6 +43,10 @@ const useAuthStore = create((set) => ({
         password,
         role,
       });
+      if (data.user) {
+        if (data.token) setAccessToken(data.token);
+        set({ user: data.user });
+      }
       return { success: true, message: data.message };
     } catch (err) {
       const message = err.response?.data?.message || "Signup failed";

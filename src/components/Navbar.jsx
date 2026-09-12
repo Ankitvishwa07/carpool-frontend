@@ -200,6 +200,7 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 rounded-xl text-slate-300 bg-slate-900 border border-slate-800 focus-ring"
             aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? '✕' : '☰'}
           </button>

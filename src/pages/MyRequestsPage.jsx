@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyRequests, cancelRequest } from '../api/requests';
 import { SkeletonCard } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
@@ -8,44 +8,40 @@ import { formatDateTime } from '../utils/format';
 import { showToast } from '../utils/toast';
 
 export default function MyRequestsPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [cancellingId, setCancellingId] = useState(null);
 
-  const fetchRequests = async () => {
-    setLoading(true);
-    setError('');
-    try {
+  const {
+    data: requests = [],
+    isLoading: loading,
+    error: queryError,
+    refetch: fetchRequests,
+  } = useQuery({
+    queryKey: ['requests', 'my-requests'],
+    queryFn: async () => {
       const data = await getMyRequests();
-      const list = Array.isArray(data) ? data : data?.requests || [];
-      setRequests(list);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load requests');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return Array.isArray(data) ? data : data?.requests || [];
+    },
+  });
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  const error = queryError ? queryError.response?.data?.message || 'Failed to load requests' : '';
 
-  const handleCancel = async (e, reqId) => {
-    e.stopPropagation();
-    if (!window.confirm('Cancel this seat request?')) return;
-    setCancellingId(reqId);
-    try {
-      await cancelRequest(reqId);
+  const cancelMutation = useMutation({
+    mutationFn: cancelRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
       showToast('Request cancelled', 'success');
-      await fetchRequests();
-    } catch (err) {
+    },
+    onError: (err) => {
       const msg = err.response?.data?.message || 'Failed to cancel request';
       showToast(msg, 'error');
-    } finally {
-      setCancellingId(null);
-    }
+    },
+  });
+
+  const handleCancel = (e, reqId) => {
+    e.stopPropagation();
+    if (!window.confirm('Cancel this seat request?')) return;
+    cancelMutation.mutate(reqId);
   };
 
   const acceptedCount = requests.filter((r) => r.status === 'accepted').length;
@@ -139,10 +135,10 @@ export default function MyRequestsPage() {
                     {['pending', 'accepted'].includes(r.status) && (
                       <button
                         onClick={(e) => handleCancel(e, r._id)}
-                        disabled={cancellingId === r._id}
+                        disabled={cancelMutation.isPending}
                         className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors"
                       >
-                        {cancellingId === r._id ? 'Cancelling...' : 'Cancel'}
+                        {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
                       </button>
                     )}
                   </div>

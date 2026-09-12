@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import useAuthStore from '../store/authStore';
 import { getMyTrips } from '../api/trips';
 import { getMyRequests } from '../api/requests';
@@ -12,37 +13,24 @@ export default function DashboardPage() {
 
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
-  const [myTrips, setMyTrips] = useState([]);
-  const [myRequests, setMyRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const [tripsRes, reqsRes] = await Promise.allSettled([getMyTrips(), getMyRequests()]);
-        if (!active) return;
+  const { data: myTrips = [], isLoading: loadingTrips } = useQuery({
+    queryKey: ['trips', 'my-trips'],
+    queryFn: async () => {
+      const res = await getMyTrips();
+      return Array.isArray(res) ? res : res?.trips || [];
+    },
+  });
 
-        if (tripsRes.status === 'fulfilled') {
-          const list = Array.isArray(tripsRes.value) ? tripsRes.value : tripsRes.value?.trips || [];
-          setMyTrips(list);
-        }
-        if (reqsRes.status === 'fulfilled') {
-          const list = Array.isArray(reqsRes.value) ? reqsRes.value : reqsRes.value?.requests || [];
-          setMyRequests(list);
-        }
-      } catch {
-        // non-fatal fallback
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
+  const { data: myRequests = [], isLoading: loadingRequests } = useQuery({
+    queryKey: ['requests', 'my-requests'],
+    queryFn: async () => {
+      const res = await getMyRequests();
+      return Array.isArray(res) ? res : res?.requests || [];
+    },
+  });
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  const loading = loadingTrips || loadingRequests;
 
   const handleQuickSearch = (e) => {
     e.preventDefault();
@@ -147,10 +135,13 @@ export default function DashboardPage() {
           <form onSubmit={handleQuickSearch} className="space-y-4">
             <div className="space-y-3">
               <div className="relative flex items-center">
-                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-[#16A34A]" />
+                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-[#16A34A]" aria-hidden="true" />
+                <label htmlFor="dash-pickup" className="sr-only">Pickup Location</label>
                 <input
+                  id="dash-pickup"
                   type="text"
                   placeholder="Pickup Location"
+                  aria-label="Pickup Location"
                   value={pickup}
                   onChange={(e) => setPickup(e.target.value)}
                   className="w-full glass-input rounded-2xl pl-10 pr-4 py-3.5 text-xs font-semibold placeholder:text-slate-400 focus-ring"
@@ -158,10 +149,13 @@ export default function DashboardPage() {
               </div>
 
               <div className="relative flex items-center">
-                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="absolute left-4 w-2.5 h-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <label htmlFor="dash-dropoff" className="sr-only">Dropoff Location</label>
                 <input
+                  id="dash-dropoff"
                   type="text"
                   placeholder="Where to?"
+                  aria-label="Dropoff Location"
                   value={dropoff}
                   onChange={(e) => setDropoff(e.target.value)}
                   className="w-full glass-input rounded-2xl pl-10 pr-4 py-3.5 text-xs font-semibold placeholder:text-slate-400 focus-ring"

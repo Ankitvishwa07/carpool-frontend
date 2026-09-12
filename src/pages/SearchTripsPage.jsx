@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { searchTrips } from '../api/trips';
 import { createRequest } from '../api/requests';
 import LocationPicker from '../components/LocationPicker';
@@ -11,6 +12,7 @@ import { showToast } from '../utils/toast';
 const CATEGORIES = ['All', 'Under ₹200', 'Morning Rides', 'Evening Rides'];
 
 export default function SearchTripsPage() {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [origin, setOrigin] = useState(() => {
     const addr = searchParams.get('origin');
@@ -21,65 +23,60 @@ export default function SearchTripsPage() {
     return addr ? { address: addr } : null;
   });
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-
   const [bookingTrip, setBookingTrip] = useState(null);
   const [pickupNote, setPickupNote] = useState('');
-  const [booking, setBooking] = useState(false);
   const [requestedIds, setRequestedIds] = useState(new Set());
 
-  const fetchTrips = async () => {
-    setSearching(true);
-    setError('');
-    try {
-      const data = await searchTrips({
+  const {
+    data: searchData,
+    isLoading: searching,
+    error: queryError,
+    refetch: fetchTrips,
+  } = useQuery({
+    queryKey: ['trips', 'search', origin?.address, destination?.address, date],
+    queryFn: async () => {
+      const res = await searchTrips({
         origin: origin?.address,
         destination: destination?.address,
         date,
       });
-      const list = Array.isArray(data) ? data : data?.trips || [];
-      setResults(list);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Search failed. Please try again.');
-    } finally {
-      setSearching(false);
-    }
-  };
+      return Array.isArray(res) ? res : res?.trips || [];
+    },
+  });
 
-  useEffect(() => {
-    fetchTrips();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const results = searchData || [];
+  const error = queryError ? queryError.response?.data?.message || 'Search failed. Please try again.' : '';
+
+  const bookMutation = useMutation({
+    mutationFn: (trip) =>
+      createRequest({
+        tripId: trip._id,
+        seatsRequested: 1,
+        pickupNote,
+      }),
+    onSuccess: (_, trip) => {
+      setRequestedIds((prev) => new Set([...prev, trip._id]));
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      showToast('Seat request submitted! Driver will be notified.', 'success');
+      setBookingTrip(null);
+      setPickupNote('');
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || 'Failed to request seat';
+      showToast(msg, 'error');
+    },
+  });
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchTrips();
   };
 
-  const handleBookSubmit = async (e) => {
+  const handleBookSubmit = (e) => {
     e.preventDefault();
     if (!bookingTrip) return;
-    setBooking(true);
-    try {
-      await createRequest({
-        tripId: bookingTrip._id,
-        seatsRequested: 1,
-        pickupNote,
-      });
-      setRequestedIds((prev) => new Set([...prev, bookingTrip._id]));
-      showToast('Seat request submitted! Driver will be notified.', 'success');
-      setBookingTrip(null);
-      setPickupNote('');
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to request seat';
-      showToast(msg, 'error');
-    } finally {
-      setBooking(false);
-    }
+    bookMutation.mutate(bookingTrip);
   };
 
   const filteredResults = results.filter((trip) => {
@@ -103,14 +100,15 @@ export default function SearchTripsPage() {
           <h2 className="font-heading font-bold text-xl text-slate-900 tracking-tight">Find Rides</h2>
 
           <form onSubmit={handleSearchSubmit} className="space-y-4">
-            <LocationPicker label="Pickup Location" value={origin} onChange={setOrigin} />
-            <LocationPicker label="Dropoff Location" value={destination} onChange={setDestination} />
+            <LocationPicker label="Pickup Location" id="search-pickup" value={origin} onChange={setOrigin} />
+            <LocationPicker label="Dropoff Location" id="search-dropoff" value={destination} onChange={setDestination} />
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <span>📅</span> Travel Date
+              <label htmlFor="search-date" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5 cursor-pointer">
+                <span aria-hidden="true">📅</span> Travel Date
               </label>
               <input
+                id="search-date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -144,6 +142,7 @@ export default function SearchTripsPage() {
                 key={cat}
                 type="button"
                 onClick={() => setActiveCategory(cat)}
+                aria-pressed={activeCategory === cat}
                 className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 transition-all focus-ring ${
                   activeCategory === cat
                     ? 'bg-[#16A34A] text-white shadow-sm font-extrabold'
@@ -234,7 +233,8 @@ export default function SearchTripsPage() {
               <h3 className="font-heading text-lg font-bold text-slate-900">Book Seat Request</h3>
               <button
                 onClick={() => setBookingTrip(null)}
-                className="text-slate-400 hover:text-slate-900 font-bold p-1"
+                className="text-slate-400 hover:text-slate-900 font-bold p-1 focus-ring rounded-lg"
+                aria-label="Close booking modal"
               >
                 ✕
               </button>
@@ -251,10 +251,11 @@ export default function SearchTripsPage() {
 
             <form onSubmit={handleBookSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label htmlFor="pickup-note" className="block text-xs font-bold text-slate-700 mb-1 cursor-pointer">
                   Note to Driver (Optional)
                 </label>
                 <textarea
+                  id="pickup-note"
                   value={pickupNote}
                   onChange={(e) => setPickupNote(e.target.value)}
                   placeholder="e.g. Waiting near Metro exit Gate 2..."
@@ -273,10 +274,10 @@ export default function SearchTripsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={booking}
+                  disabled={bookMutation.isPending}
                   className="w-1/2 py-3 rounded-xl btn-brand text-xs font-extrabold shadow-sm"
                 >
-                  {booking ? 'Submitting...' : 'Confirm Booking'}
+                  {bookMutation.isPending ? 'Submitting...' : 'Confirm Booking'}
                 </button>
               </div>
             </form>

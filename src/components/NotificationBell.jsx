@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyNotifications, markNotificationRead, markAllNotificationsRead } from '../api/notifications';
 import { getNotificationSocket } from '../api/socket';
 
@@ -14,31 +15,40 @@ const TYPE_CONFIG = {
 };
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await getMyNotifications({ limit: 15 });
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      } catch {
-        // non-fatal
-      }
-    })();
+  const { data: notificationData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => getMyNotifications({ limit: 15 }),
+  });
 
+  const notifications = notificationData?.notifications || [];
+  const unreadCount = notificationData?.unreadCount || 0;
+
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  useEffect(() => {
     const socket = getNotificationSocket();
-    const handleNew = (notification) => {
-      setNotifications((prev) => [notification, ...prev].slice(0, 15));
-      setUnreadCount((prev) => prev + 1);
+    const handleNew = () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     };
     socket.on('notification', handleNew);
-
     return () => socket.off('notification', handleNew);
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -48,25 +58,13 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleItemClick = async (notification) => {
+  const handleItemClick = (notification) => {
     if (notification.isRead) return;
-    try {
-      await markNotificationRead(notification._id);
-      setNotifications((prev) => prev.map((n) => (n._id === notification._id ? { ...n, isRead: true } : n)));
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      // non-fatal
-    }
+    markReadMutation.mutate(notification._id);
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-    } catch {
-      // non-fatal
-    }
+  const handleMarkAllRead = () => {
+    markAllReadMutation.mutate();
   };
 
   return (
@@ -74,10 +72,11 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen((p) => !p)}
         className="relative p-2.5 rounded-2xl text-slate-600 hover:text-slate-900 hover:bg-emerald-50 transition-all border border-emerald-200 focus-ring bg-white"
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-expanded={open}
       >
         {/* Sleek SVG Bell Line Icon */}
-        <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
 

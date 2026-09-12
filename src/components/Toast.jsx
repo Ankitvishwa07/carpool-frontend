@@ -40,7 +40,7 @@ export default function ToastContainer() {
           <button
             onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
             className="text-slate-400 hover:text-white text-xs ml-3 p-1 rounded-lg focus-ring"
-            aria-label="Dismiss toast"
+            aria-label="Dismiss notification"
           >
             ✕
           </button>

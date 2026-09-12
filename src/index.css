@@ -85,6 +85,43 @@
   color: #94a3b8;
 }
 
+/* Dark Mode Theme Overrides */
+html.dark body {
+  background-color: #0b130e !important;
+  color: #f1f5f9;
+}
+
+html.dark .glass-card {
+  background: #112017;
+  border-color: rgba(34, 197, 94, 0.25);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  color: #f1f5f9;
+}
+
+html.dark .glass-card-dark {
+  background: linear-gradient(135deg, #14532D 0%, #052e16 100%);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #f0fdf4;
+}
+
+html.dark .glass-panel {
+  background: #162b1e;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+html.dark .glass-input {
+  background: #0f1a13;
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #f8fafc;
+}
+html.dark .glass-input:focus {
+  background: #132419;
+  border-color: #22c55e;
+}
+html.dark .glass-input::placeholder {
+  color: #64748b;
+}
+
 /* Accessibility Focus Ring */
 .focus-ring {
   outline: none;

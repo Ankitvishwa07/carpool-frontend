@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { showToast } from '../utils/toast';
+import { loginSchema, validateWithZod } from '../utils/validation';
 
 export default function LoginPage() {
   const login = useAuthStore((s) => s.login);
@@ -21,11 +22,9 @@ export default function LoginPage() {
   };
 
   const validate = () => {
-    const errs = {};
-    if (!form.email.trim()) errs.email = 'Email address is required';
-    if (!form.password) errs.password = 'Password is required';
-    setFieldErrors(errs);
-    return Object.keys(errs).length === 0;
+    const { isValid, errors } = validateWithZod(loginSchema, form);
+    setFieldErrors(errors);
+    return isValid;
   };
 
   const handleSubmit = async (e) => {
@@ -70,10 +69,11 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+              <label htmlFor="login-email" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5 cursor-pointer">
                 Email Address
               </label>
               <input
+                id="login-email"
                 type="email"
                 name="email"
                 value={form.email}
@@ -89,7 +89,7 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700">
+                <label htmlFor="login-password" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 cursor-pointer">
                   Password
                 </label>
                 <Link to="/forgot-password" className="text-xs text-[#16A34A] hover:underline font-bold focus-ring rounded-lg">
@@ -98,6 +98,7 @@ export default function LoginPage() {
               </div>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={form.password}
@@ -109,6 +110,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 text-xs font-semibold px-1 focus-ring rounded-lg"
                 >
                   {showPassword ? 'Hide' : 'Show'}

@@ -93,7 +93,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 </Link>
                 <button
                   onClick={() => setMobileOpen(false)}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 bg-slate-100"
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 bg-slate-100 focus-ring"
+                  aria-label="Close mobile navigation menu"
                 >
                   ✕
                 </button>

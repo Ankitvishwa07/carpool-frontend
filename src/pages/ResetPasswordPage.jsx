@@ -68,11 +68,12 @@ export default function ResetPasswordPage() {
               )}
 
               <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+                <label htmlFor="reset-password" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5 cursor-pointer">
                   New Password <span className="text-slate-400 font-normal">(min 8 chars)</span>
                 </label>
                 <div className="relative">
                   <input
+                    id="reset-password"
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -84,6 +85,7 @@ export default function ResetPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 text-xs font-semibold px-1 focus-ring rounded-lg"
                   >
                     {showPassword ? 'Hide' : 'Show'}

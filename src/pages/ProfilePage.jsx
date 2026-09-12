@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { updateProfile } from '../api/profile';
 import { getUserRatings } from '../api/rating';
@@ -9,95 +10,106 @@ import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const [homeLocation, setHomeLocation] = useState(null);
-  const [workLocation, setWorkLocation] = useState(null);
-  const [car, setCar] = useState({ hasCar: false, seatsAvailable: 0, make: '', model: '', color: '' });
-  const [ratings, setRatings] = useState([]);
-
   const userId = user?._id || user?.id;
 
-  const fetchProfile = async () => {
-    setLoading(true);
-    setError('');
-    try {
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [userHomeOverride, setUserHomeOverride] = useState(undefined);
+  const [userWorkOverride, setUserWorkOverride] = useState(undefined);
+  const [userCarOverride, setUserCarOverride] = useState(undefined);
+
+  const { data: profileData, isLoading: loadingProfile } = useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: async () => {
       const { data } = await api.get('/auth/me');
-      const profile = data.user;
-      if (profile.homeLocation) {
-        setHomeLocation({
-          lat: profile.homeLocation.coordinates[1],
-          lng: profile.homeLocation.coordinates[0],
-          address: profile.homeLocation.address,
-        });
-      }
-      if (profile.workLocation) {
-        setWorkLocation({
-          lat: profile.workLocation.coordinates[1],
-          lng: profile.workLocation.coordinates[0],
-          address: profile.workLocation.address,
-        });
-      }
-      if (profile.car) {
-        setCar({
-          hasCar: profile.car.hasCar || false,
-          seatsAvailable: profile.car.seatsAvailable || 0,
-          make: profile.car.make || '',
-          model: profile.car.model || '',
-          color: profile.car.color || '',
-        });
-      }
+      return data.user;
+    },
+  });
 
-      if (userId) {
-        const ratingData = await getUserRatings(userId);
-        setRatings(ratingData.ratings || []);
-      }
-    } catch (err) {
-      // fallback
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: ratings = [] } = useQuery({
+    queryKey: ['ratings', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const ratingData = await getUserRatings(userId);
+      return ratingData.ratings || [];
+    },
+    enabled: !!userId,
+  });
 
-  useEffect(() => {
-    fetchProfile();
-  }, [userId]);
+  const homeLocation =
+    userHomeOverride !== undefined
+      ? userHomeOverride
+      : profileData?.homeLocation
+      ? {
+          lat: profileData.homeLocation.coordinates[1],
+          lng: profileData.homeLocation.coordinates[0],
+          address: profileData.homeLocation.address,
+        }
+      : null;
+
+  const workLocation =
+    userWorkOverride !== undefined
+      ? userWorkOverride
+      : profileData?.workLocation
+      ? {
+          lat: profileData.workLocation.coordinates[1],
+          lng: profileData.workLocation.coordinates[0],
+          address: profileData.workLocation.address,
+        }
+      : null;
+
+  const car =
+    userCarOverride !== undefined
+      ? userCarOverride
+      : {
+          hasCar: profileData?.car?.hasCar || false,
+          seatsAvailable: profileData?.car?.seatsAvailable || 0,
+          make: profileData?.car?.make || '',
+          model: profileData?.car?.model || '',
+          color: profileData?.car?.color || '',
+        };
+
+  const saveMutation = useMutation({
+    mutationFn: updateProfile,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      if (data?.user) updateUser(data.user);
+      setSuccess('Profile saved successfully!');
+      showToast('Profile updated successfully!', 'success');
+    },
+    onError: () => {
+      setSuccess('Profile saved successfully!');
+      showToast('Profile updated successfully!', 'success');
+    },
+  });
+
+  const loading = loadingProfile;
+  const saving = saveMutation.isPending;
 
   const handleCarChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCar((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setUserCarOverride((prev) => ({
+      ...(prev || car),
+      [name]: type === 'checkbox' ? checked : value,
+    }));
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
-    try {
-      const { user: updated } = await updateProfile({
-        homeLocation: homeLocation || undefined,
-        workLocation: workLocation || undefined,
-        hasCar: car.hasCar,
-        seatsAvailable: car.hasCar ? Number(car.seatsAvailable) : 0,
-        make: car.make,
-        model: car.model,
-        color: car.color,
-      });
-      updateUser(updated);
-      setSuccess('Profile saved successfully!');
-      showToast('Profile updated successfully!', 'success');
-    } catch (err) {
-      setSuccess('Profile saved successfully!');
-      showToast('Profile updated successfully!', 'success');
-    } finally {
-      setSaving(false);
-    }
+    saveMutation.mutate({
+      homeLocation: homeLocation || undefined,
+      workLocation: workLocation || undefined,
+      hasCar: car.hasCar,
+      seatsAvailable: car.hasCar ? Number(car.seatsAvailable) : 0,
+      make: car.make,
+      model: car.model,
+      color: car.color,
+    });
   };
 
   if (loading) {
@@ -111,7 +123,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {error && <ErrorState message={error} onRetry={fetchProfile} />}
+      {error && <ErrorState message={error} />}
 
       {success && (
         <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-300 text-[#16A34A] text-xs flex items-center gap-2 font-bold">
@@ -145,15 +157,15 @@ export default function ProfilePage() {
             <span>📍</span> Saved Locations & Presets
           </h2>
           <div className="space-y-4">
-            <LocationPicker label="Default Home Location" value={homeLocation} onChange={setHomeLocation} />
-            <LocationPicker label="Default Work Location" value={workLocation} onChange={setWorkLocation} />
+            <LocationPicker label="Default Home Location" id="profile-home" value={homeLocation} onChange={setUserHomeOverride} />
+            <LocationPicker label="Default Work Location" id="profile-work" value={workLocation} onChange={setUserWorkOverride} />
           </div>
         </div>
 
         {/* Vehicle Setup */}
         <div className="space-y-4">
           <h2 className="font-heading text-xs font-black uppercase tracking-wider text-[#16A34A] border-b border-emerald-100 pb-2 flex items-center gap-2">
-            <span>🚘</span> Vehicle Specification
+            <span aria-hidden="true">🚘</span> Vehicle Specification
           </h2>
 
           <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 space-y-4">
@@ -175,8 +187,9 @@ export default function ProfilePage() {
               <div className="space-y-4 pt-3 border-t border-emerald-200/60">
                 <div className="grid sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Make</label>
+                    <label htmlFor="car-make" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">Make</label>
                     <input
+                      id="car-make"
                       name="make"
                       placeholder="e.g. Honda"
                       value={car.make}
@@ -185,8 +198,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Model</label>
+                    <label htmlFor="car-model" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">Model</label>
                     <input
+                      id="car-model"
                       name="model"
                       placeholder="e.g. Civic"
                       value={car.model}
@@ -195,8 +209,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Color</label>
+                    <label htmlFor="car-color" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">Color</label>
                     <input
+                      id="car-color"
                       name="color"
                       placeholder="e.g. Black"
                       value={car.color}

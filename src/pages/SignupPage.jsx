@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { showToast } from '../utils/toast';
+import { signupSchema, validateWithZod } from '../utils/validation';
 
 export default function SignupPage() {
   const signup = useAuthStore((s) => s.signup);
@@ -21,12 +22,9 @@ export default function SignupPage() {
   };
 
   const validate = () => {
-    const errs = {};
-    if (!form.name.trim()) errs.name = 'Full name is required';
-    if (!form.email.trim()) errs.email = 'Email address is required';
-    if (!form.password || form.password.length < 8) errs.password = 'Min 8 characters required';
-    setFieldErrors(errs);
-    return Object.keys(errs).length === 0;
+    const { isValid, errors } = validateWithZod(signupSchema, form);
+    setFieldErrors(errors);
+    return isValid;
   };
 
   const handleSubmit = async (e) => {
@@ -70,10 +68,11 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+              <label htmlFor="signup-name" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5 cursor-pointer">
                 Full Name
               </label>
               <input
+                id="signup-name"
                 name="name"
                 value={form.name}
                 onChange={handleChange}
@@ -87,10 +86,11 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+              <label htmlFor="signup-email" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5 cursor-pointer">
                 Email Address
               </label>
               <input
+                id="signup-email"
                 type="email"
                 name="email"
                 value={form.email}
@@ -105,11 +105,12 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5">
+              <label htmlFor="signup-password" className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-1.5 cursor-pointer">
                 Password <span className="text-slate-400 font-normal">(min 8 chars)</span>
               </label>
               <div className="relative">
                 <input
+                  id="signup-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={form.password}
@@ -121,6 +122,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 text-xs font-semibold px-1 focus-ring rounded-lg"
                 >
                   {showPassword ? 'Hide' : 'Show'}
@@ -132,13 +134,14 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-2">
+              <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-700 mb-2">
                 Account Type
-              </label>
+              </span>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, role: 'rider' })}
+                  aria-pressed={form.role === 'rider'}
                   className={`p-3.5 rounded-2xl border text-left transition-all focus-ring ${
                     form.role === 'rider'
                       ? 'bg-[#DCFCE7] border-emerald-300 text-[#14532D] font-extrabold shadow-xs'
@@ -152,6 +155,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, role: 'driver' })}
+                  aria-pressed={form.role === 'driver'}
                   className={`p-3.5 rounded-2xl border text-left transition-all focus-ring ${
                     form.role === 'driver'
                       ? 'bg-[#DCFCE7] border-emerald-300 text-[#14532D] font-extrabold shadow-xs'

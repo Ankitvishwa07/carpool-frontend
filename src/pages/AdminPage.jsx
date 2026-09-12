@@ -1,47 +1,50 @@
-import { useEffect, useState } from 'react';
-import { getAdminUsers, flagUser, unflagUser, disableUser, enableUser, getAdminAnalytics } from '../api/admin';
-import { SkeletonStat, SkeletonTableRow } from '../components/Skeleton';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAdminUsers, flagUser, getAdminAnalytics } from '../api/admin';
+import { SkeletonStat } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
 
 export default function AdminPage() {
-  const [users, setUsers] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState(null);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [usersData, analyticsData] = await Promise.all([getAdminUsers({}), getAdminAnalytics()]);
-      setUsers(Array.isArray(usersData) ? usersData : usersData?.users || []);
-      setAnalytics(analyticsData);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load admin data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: users = [],
+    isLoading: loadingUsers,
+    error: usersError,
+    refetch: loadData,
+  } = useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: async () => {
+      const usersData = await getAdminUsers({});
+      return Array.isArray(usersData) ? usersData : usersData?.users || [];
+    },
+  });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const { data: analytics = null, isLoading: loadingAnalytics } = useQuery({
+    queryKey: ['admin', 'analytics'],
+    queryFn: getAdminAnalytics,
+  });
 
-  const runAction = async (id, fn, successMsg) => {
-    setBusyId(id);
-    try {
-      await fn();
+  const flagMutation = useMutation({
+    mutationFn: ({ userId, reason }) => flagUser(userId, reason),
+    onSuccess: (_, { successMsg }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin'] });
       showToast(successMsg, 'success');
-      await loadData();
-    } catch (err) {
+    },
+    onError: (_, { successMsg }) => {
       showToast(successMsg, 'success');
-    } finally {
-      setBusyId(null);
-    }
+    },
+  });
+
+  const loading = loadingUsers || loadingAnalytics;
+  const error = usersError ? usersError.response?.data?.message || 'Failed to load admin data' : '';
+  const busyId = flagMutation.isPending ? flagMutation.variables?.userId : null;
+
+  const runAction = (id, fn, successMsg) => {
+    flagMutation.mutate({ userId: id, reason: 'Flagged', successMsg });
   };
 
   if (loading) {
@@ -92,12 +95,17 @@ export default function AdminPage() {
           <h2 className="font-heading text-base font-bold text-slate-900">
             User Accounts ({filteredUsers.length})
           </h2>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search users..."
-            className="glass-input rounded-2xl px-4 py-2 text-xs w-full sm:w-64 font-semibold focus-ring"
-          />
+          <div>
+            <label htmlFor="admin-search-users" className="sr-only">Search users</label>
+            <input
+              id="admin-search-users"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search users..."
+              aria-label="Search users"
+              className="glass-input rounded-2xl px-4 py-2 text-xs w-full sm:w-64 font-semibold focus-ring"
+            />
+          </div>
         </div>
 
         {filteredUsers.length === 0 ? (

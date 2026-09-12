@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import NotificationBell from './NotificationBell';
+import ThemeToggle from './ThemeToggle';
 
 const PAGE_TITLES = {
   '/dashboard': 'Ride Overview',
@@ -41,24 +42,25 @@ export default function Header({ onMobileMenuToggle }) {
   }, []);
 
   return (
-    <header className="w-full bg-white px-4 sm:px-8 py-5 flex items-center justify-between z-20 border-b border-emerald-100/80 shadow-xs">
+    <header className="w-full bg-white dark:bg-slate-900 border-b border-emerald-100/80 dark:border-slate-800 px-4 sm:px-8 py-5 flex items-center justify-between z-20 shadow-xs transition-colors">
       <div className="flex items-center gap-3">
         {/* Mobile Hamburger Button */}
         <button
           onClick={onMobileMenuToggle}
-          className="lg:hidden p-2 rounded-xl text-slate-700 bg-emerald-50 border border-emerald-200 focus-ring"
-          aria-label="Open mobile menu"
+          className="lg:hidden p-2 rounded-xl text-slate-700 dark:text-slate-200 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 focus-ring"
+          aria-label="Open mobile navigation menu"
         >
           ☰
         </button>
 
-        <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900 tracking-tight">
+        <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
           {title}
         </h1>
       </div>
 
       {user && (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <ThemeToggle />
           <NotificationBell />
 
           {/* User Avatar Dropdown */}
@@ -67,6 +69,7 @@ export default function Header({ onMobileMenuToggle }) {
               onClick={() => setProfileDropdownOpen((p) => !p)}
               className="flex items-center gap-2.5 p-1 rounded-full hover:ring-2 hover:ring-[#16A34A] transition-all focus-ring"
               aria-label="User profile menu"
+              aria-expanded={profileDropdownOpen}
             >
               <div className="w-10 h-10 rounded-full bg-[#DCFCE7] text-[#14532D] font-extrabold text-sm flex items-center justify-center shadow-xs border-2 border-[#16A34A]">
                 {user.name?.[0]?.toUpperCase() || 'U'}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import useAuthStore from '../store/authStore';
 import { getAccessToken } from '../api/client';
@@ -39,13 +40,18 @@ function RatingForm({ label, onSubmit, busy }) {
           </button>
         ))}
       </div>
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        placeholder="Write feedback comment..."
-        rows={2}
-        className="w-full glass-input rounded-2xl p-3 text-sm font-medium focus-ring"
-      />
+      <div>
+        <label htmlFor="rating-comment" className="sr-only">Feedback Comment</label>
+        <textarea
+          id="rating-comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Write feedback comment..."
+          aria-label="Feedback comment"
+          rows={2}
+          className="w-full glass-input rounded-2xl p-3 text-sm font-medium focus-ring"
+        />
+      </div>
       <button
         type="button"
         disabled={busy || stars === 0}
@@ -60,83 +66,50 @@ function RatingForm({ label, onSubmit, busy }) {
 
 export default function TripDetailPage() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-
-  const [trip, setTrip] = useState(null);
-  const [incomingRequests, setIncomingRequests] = useState([]);
-  const [myRequest, setMyRequest] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [actionError, setActionError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const userId = user?._id || user?.id;
 
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
-
   const [ratedIds, setRatedIds] = useState(new Set());
-  const [ratingBusy, setRatingBusy] = useState(false);
 
-  const userId = user?._id || user?.id;
+  const {
+    data: trip,
+    isLoading: loadingTrip,
+    error: tripQueryError,
+    refetch: loadCore,
+  } = useQuery({
+    queryKey: ['trips', id],
+    queryFn: async () => {
+      const res = await getTrip(id);
+      return res.trip;
+    },
+  });
+
   const isDriver = (trip?.driverId?._id || trip?.driverId) === userId;
 
-  const loadCore = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const { trip: fetchedTrip } = await getTrip(id);
-      setTrip(fetchedTrip);
+  const { data: incomingRequests = [] } = useQuery({
+    queryKey: ['requests', 'incoming', id],
+    queryFn: async () => {
+      const reqData = await getIncomingRequests();
+      const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+      return reqList.filter((r) => (r.tripId?._id || r.tripId) === id);
+    },
+    enabled: !!isDriver,
+  });
 
-      const driverIdStr = fetchedTrip.driverId?._id || fetchedTrip.driverId;
-      const iAmDriver = driverIdStr === userId;
-      if (iAmDriver) {
-        const reqData = await getIncomingRequests();
-        const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
-        setIncomingRequests(reqList.filter((r) => (r.tripId?._id || r.tripId) === id));
-      } else {
-        const reqData = await getMyRequests();
-        const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
-        setMyRequest(reqList.find((r) => (r.tripId?._id || r.tripId) === id) || null);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load trip');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const { trip: fetchedTrip } = await getTrip(id);
-        if (!active) return;
-        setTrip(fetchedTrip);
-
-        const driverIdStr = fetchedTrip.driverId?._id || fetchedTrip.driverId;
-        const iAmDriver = driverIdStr === userId;
-        if (iAmDriver) {
-          const reqData = await getIncomingRequests();
-          const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
-          if (active) setIncomingRequests(reqList.filter((r) => (r.tripId?._id || r.tripId) === id));
-        } else {
-          const reqData = await getMyRequests();
-          const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
-          if (active) setMyRequest(reqList.find((r) => (r.tripId?._id || r.tripId) === id) || null);
-        }
-      } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Failed to load trip');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [id, userId]);
+  const { data: myRequest = null } = useQuery({
+    queryKey: ['requests', 'my-request', id],
+    queryFn: async () => {
+      const reqData = await getMyRequests();
+      const reqList = Array.isArray(reqData) ? reqData : reqData.requests || [];
+      return reqList.find((r) => (r.tripId?._id || r.tripId) === id) || null;
+    },
+    enabled: !isDriver && !!userId,
+  });
 
   const canChat = isDriver
     ? incomingRequests.some((r) => r.status === 'accepted')
@@ -180,35 +153,44 @@ export default function TripDetailPage() {
     setDraft('');
   };
 
-  const runAction = async (fn, successMsg) => {
-    setActionError('');
-    setBusy(true);
-    try {
-      await fn();
+  const actionMutation = useMutation({
+    mutationFn: async ({ fn }) => fn(),
+    onSuccess: (_, { successMsg }) => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
       if (successMsg) showToast(successMsg, 'success');
-      await loadCore();
-    } catch (err) {
+    },
+    onError: (err) => {
       const msg = err.response?.data?.message || 'Action failed';
-      setActionError(msg);
       showToast(msg, 'error');
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+
+  const ratingMutation = useMutation({
+    mutationFn: submitRating,
+    onSuccess: (_, { rateeId }) => {
+      setRatedIds((prev) => new Set(prev).add(rateeId));
+      showToast('Rating submitted successfully!', 'success');
+    },
+    onError: (_, { rateeId }) => {
+      setRatedIds((prev) => new Set(prev).add(rateeId));
+      showToast('Rating submitted successfully!', 'success');
+    },
+  });
+
+  const runAction = (fn, successMsg) => {
+    actionMutation.mutate({ fn, successMsg });
   };
 
-  const handleRate = async (rateeId, stars, comment) => {
-    setRatingBusy(true);
-    try {
-      await submitRating({ tripId: id, rateeId, stars, comment: comment || undefined });
-      setRatedIds((prev) => new Set(prev).add(rateeId));
-      showToast('Rating submitted successfully!', 'success');
-    } catch (err) {
-      setRatedIds((prev) => new Set(prev).add(rateeId));
-      showToast('Rating submitted successfully!', 'success');
-    } finally {
-      setRatingBusy(false);
-    }
+  const handleRate = (rateeId, stars, comment) => {
+    ratingMutation.mutate({ tripId: id, rateeId, stars, comment: comment || undefined });
   };
+
+  const loading = loadingTrip;
+  const error = tripQueryError ? tripQueryError.response?.data?.message || 'Failed to load trip' : '';
+  const actionError = actionMutation.error ? actionMutation.error.response?.data?.message || 'Action failed' : '';
+  const busy = actionMutation.isPending;
+  const ratingBusy = ratingMutation.isPending;
 
   if (loading) {
     return (
@@ -422,10 +404,13 @@ export default function TripDetailPage() {
             </div>
 
             <form onSubmit={handleSend} className="flex gap-2">
+              <label htmlFor="chat-input" className="sr-only">Type message to co-commuters</label>
               <input
+                id="chat-input"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Type message to co-commuters..."
+                aria-label="Type message to co-commuters"
                 className="flex-1 glass-input rounded-2xl px-4 py-3 text-xs font-semibold focus-ring"
               />
               <button

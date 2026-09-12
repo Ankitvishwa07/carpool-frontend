@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyTrips, cancelTrip } from '../api/trips';
 import { SkeletonCard } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
@@ -8,44 +8,40 @@ import { formatDateTime } from '../utils/format';
 import { showToast } from '../utils/toast';
 
 export default function MyTripsPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [cancellingId, setCancellingId] = useState(null);
 
-  const fetchTrips = async () => {
-    setLoading(true);
-    setError('');
-    try {
+  const {
+    data: trips = [],
+    isLoading: loading,
+    error: queryError,
+    refetch: fetchTrips,
+  } = useQuery({
+    queryKey: ['trips', 'my-trips'],
+    queryFn: async () => {
       const data = await getMyTrips();
-      const list = Array.isArray(data) ? data : data?.trips || [];
-      setTrips(list);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load your trips');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return Array.isArray(data) ? data : data?.trips || [];
+    },
+  });
 
-  useEffect(() => {
-    fetchTrips();
-  }, []);
+  const error = queryError ? queryError.response?.data?.message || 'Failed to load your trips' : '';
 
-  const handleCancel = async (e, tripId) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to cancel this trip?')) return;
-    setCancellingId(tripId);
-    try {
-      await cancelTrip(tripId);
+  const cancelMutation = useMutation({
+    mutationFn: cancelTrip,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
       showToast('Trip cancelled successfully', 'success');
-      await fetchTrips();
-    } catch (err) {
+    },
+    onError: (err) => {
       const msg = err.response?.data?.message || 'Failed to cancel trip';
       showToast(msg, 'error');
-    } finally {
-      setCancellingId(null);
-    }
+    },
+  });
+
+  const handleCancel = (e, tripId) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to cancel this trip?')) return;
+    cancelMutation.mutate(tripId);
   };
 
   const activeCount = trips.filter((t) => ['active', 'full'].includes(t.status)).length;
@@ -146,10 +142,10 @@ export default function MyTripsPage() {
                     {['active', 'full'].includes(t.status) && (
                       <button
                         onClick={(e) => handleCancel(e, t._id)}
-                        disabled={cancellingId === t._id}
+                        disabled={cancelMutation.isPending}
                         className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors"
                       >
-                        {cancellingId === t._id ? 'Cancelling...' : 'Cancel'}
+                        {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
                       </button>
                     )}
                   </div>

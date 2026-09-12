@@ -12,7 +12,8 @@ L.Icon.Default.mergeOptions({
 const DEFAULT_CENTER = [19.076, 72.8777]; // Mumbai default
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
 
-export default function LocationPicker({ label, value, onChange }) {
+export default function LocationPicker({ label, value, onChange, id }) {
+  const inputId = id || `loc-picker-${label?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'input'}`;
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -142,24 +143,27 @@ export default function LocationPicker({ label, value, onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-          <span>📍</span> {label}
+        <label htmlFor={inputId} className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 cursor-pointer">
+          <span aria-hidden="true">📍</span> {label}
         </label>
         <button
           type="button"
           onClick={handleUseMyLocation}
           className="text-[11px] text-[#16A34A] hover:underline flex items-center gap-1 font-bold focus-ring rounded-lg px-1"
+          aria-label={`Use my current location for ${label}`}
         >
-          <span>🎯</span> Use My Location
+          <span aria-hidden="true">🎯</span> Use My Location
         </button>
       </div>
 
       <div className="relative">
         <div className="relative flex items-center">
           <input
+            id={inputId}
             value={query}
             onChange={handleSearchChange}
             placeholder="Search address or landmark..."
+            aria-label={label}
             className="w-full glass-input rounded-xl px-4 py-2.5 text-xs font-semibold pr-9 text-slate-900 placeholder:text-slate-400 focus-ring"
           />
           {loading && (
@@ -184,8 +188,8 @@ export default function LocationPicker({ label, value, onChange }) {
         )}
       </div>
 
-      <div className="relative rounded-2xl overflow-hidden border border-emerald-200 shadow-sm">
-        <div ref={mapContainerRef} className="w-full h-52 z-10" />
+      <div className="relative rounded-2xl overflow-hidden border border-emerald-200 dark:border-emerald-800 shadow-sm">
+        <div ref={mapContainerRef} className="w-full h-44 sm:h-52 z-10 touch-pan-y" />
       </div>
 
       <p className="text-[11px] text-slate-500 flex items-center gap-1">

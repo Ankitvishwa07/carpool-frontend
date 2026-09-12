@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTrip } from '../api/trips';
 import LocationPicker from '../components/LocationPicker';
 import ErrorState from '../components/ErrorState';
 import { showToast } from '../utils/toast';
+import { postTripSchema, validateWithZod } from '../utils/validation';
 
 const DAYS = [
   { label: 'Sun', value: 0 },
@@ -16,6 +18,7 @@ const DAYS = [
 ];
 
 export default function PostTripPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const [origin, setOrigin] = useState(null);
@@ -31,7 +34,22 @@ export default function PostTripPage() {
   });
   const [selectedDays, setSelectedDays] = useState([]);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+
+  const createTripMutation = useMutation({
+    mutationFn: createTrip,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      showToast('Trip published successfully!', 'success');
+      navigate('/my-trips');
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || 'Failed to post trip';
+      setError(msg);
+      showToast(msg, 'error');
+    },
+  });
+
+  const submitting = createTripMutation.isPending;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -44,46 +62,38 @@ export default function PostTripPage() {
 
   const combineDateTime = (date, time) => (date && time ? new Date(`${date}T${time}`).toISOString() : undefined);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    if (!origin || !destination) {
-      const msg = 'Please set both a pickup point and destination on the map';
-      setError(msg);
-      showToast(msg, 'error');
-      return;
-    }
-    if (!form.date || !form.departureTime) {
-      const msg = 'Please select a trip date and departure time';
-      setError(msg);
-      showToast(msg, 'error');
+    const { isValid, errors: validationErrs } = validateWithZod(postTripSchema, {
+      origin,
+      destination,
+      date: form.date,
+      departureTime: form.departureTime,
+      seatsTotal: form.seatsTotal,
+      pricePerSeat: form.pricePerSeat,
+    });
+
+    if (!isValid) {
+      const firstMsg = Object.values(validationErrs)[0] || 'Please fix errors before submitting';
+      setError(firstMsg);
+      showToast(firstMsg, 'error');
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await createTrip({
-        origin: { lat: origin.lat, lng: origin.lng, address: origin.address },
-        destination: { lat: destination.lat, lng: destination.lng, address: destination.address },
-        departureTime: combineDateTime(form.date, form.departureTime),
-        returnTime: combineDateTime(form.date, form.returnTime),
-        seatsTotal: Number(form.seatsTotal),
-        pricePerSeat: Number(form.pricePerSeat),
-        isRecurring: form.isRecurring,
-        recurrence: form.isRecurring
-          ? { daysOfWeek: selectedDays, until: form.until ? new Date(form.until).toISOString() : undefined }
-          : undefined,
-      });
-      showToast('Trip published successfully!', 'success');
-      navigate('/my-trips');
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to post trip';
-      setError(msg);
-      showToast(msg, 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    createTripMutation.mutate({
+      origin: { lat: origin.lat, lng: origin.lng, address: origin.address },
+      destination: { lat: destination.lat, lng: destination.lng, address: destination.address },
+      departureTime: combineDateTime(form.date, form.departureTime),
+      returnTime: combineDateTime(form.date, form.returnTime),
+      seatsTotal: Number(form.seatsTotal),
+      pricePerSeat: Number(form.pricePerSeat),
+      isRecurring: form.isRecurring,
+      recurrence: form.isRecurring
+        ? { daysOfWeek: selectedDays, until: form.until ? new Date(form.until).toISOString() : undefined }
+        : undefined,
+    });
   };
 
   return (
@@ -97,23 +107,24 @@ export default function PostTripPage() {
             <span>📍</span> 1. Pick-Up & Drop-Off Route
           </h2>
           <div className="space-y-4">
-            <LocationPicker label="Departure Point (Origin)" value={origin} onChange={setOrigin} />
-            <LocationPicker label="Destination Point" value={destination} onChange={setDestination} />
+            <LocationPicker label="Departure Point (Origin)" id="post-origin" value={origin} onChange={setOrigin} />
+            <LocationPicker label="Destination Point" id="post-destination" value={destination} onChange={setDestination} />
           </div>
         </div>
 
         {/* Section 2: Timing */}
         <div className="space-y-4">
           <h2 className="font-heading text-xs font-black uppercase tracking-wider text-[#16A34A] border-b border-emerald-100 pb-2 flex items-center gap-2">
-            <span>🕒</span> 2. Departure Time & Schedule
+            <span aria-hidden="true">🕒</span> 2. Departure Time & Schedule
           </h2>
 
           <div className="grid sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <label htmlFor="post-date" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">
                 Trip Date
               </label>
               <input
+                id="post-date"
                 name="date"
                 type="date"
                 value={form.date}
@@ -123,10 +134,11 @@ export default function PostTripPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <label htmlFor="post-dept-time" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">
                 Departure Time
               </label>
               <input
+                id="post-dept-time"
                 name="departureTime"
                 type="time"
                 value={form.departureTime}
@@ -136,10 +148,11 @@ export default function PostTripPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <label htmlFor="post-return-time" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 cursor-pointer">
                 Return Time (Optional)
               </label>
               <input
+                id="post-return-time"
                 name="returnTime"
                 type="time"
                 value={form.returnTime}
@@ -166,13 +179,15 @@ export default function PostTripPage() {
 
             {form.isRecurring && (
               <div className="space-y-3 pt-2 border-t border-emerald-200/60">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-2">Repeats On</label>
+                <span className="block text-[11px] font-semibold text-slate-600 mb-2">Repeats On</span>
                 <div className="flex flex-wrap gap-2">
                   {DAYS.map((day) => (
                     <button
                       type="button"
                       key={day.value}
                       onClick={() => toggleDay(day.value)}
+                      aria-pressed={selectedDays.includes(day.value)}
+                      aria-label={`Repeat on ${day.label}`}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border focus-ring ${
                         selectedDays.includes(day.value)
                           ? 'bg-[#16A34A] text-white border-[#16A34A] shadow-xs'
@@ -191,23 +206,25 @@ export default function PostTripPage() {
         {/* Section 3: Seats & Fare */}
         <div className="space-y-4">
           <h2 className="font-heading text-xs font-black uppercase tracking-wider text-[#16A34A] border-b border-emerald-100 pb-2 flex items-center gap-2">
-            <span>💺</span> 3. Seats & Pricing
+            <span aria-hidden="true">💺</span> 3. Seats & Pricing
           </h2>
 
           <div className="grid sm:grid-cols-2 gap-6">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+              <label htmlFor="post-seats" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2 cursor-pointer">
                 Available Car Seats
               </label>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, seatsTotal: Math.max(1, form.seatsTotal - 1) })}
+                  aria-label="Decrease seat count"
                   className="w-10 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-slate-800 font-extrabold text-lg flex items-center justify-center focus-ring"
                 >
                   -
                 </button>
                 <input
+                  id="post-seats"
                   name="seatsTotal"
                   type="number"
                   min="1"
@@ -220,6 +237,7 @@ export default function PostTripPage() {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, seatsTotal: Math.min(10, form.seatsTotal + 1) })}
+                  aria-label="Increase seat count"
                   className="w-10 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-slate-800 font-extrabold text-lg flex items-center justify-center focus-ring"
                 >
                   +
@@ -229,12 +247,13 @@ export default function PostTripPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+              <label htmlFor="post-price" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2 cursor-pointer">
                 Price per Seat (₹)
               </label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-[#16A34A]">₹</span>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-[#16A34A]" aria-hidden="true">₹</span>
                 <input
+                  id="post-price"
                   name="pricePerSeat"
                   type="number"
                   min="0"
